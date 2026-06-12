@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -22,41 +21,27 @@ creds_dict = {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ziyaret-bot%40innate-paratext-499214-r1.iam.gserviceaccount.com"
 }
 
-# --- BAĞLANTI VE ARAYÜZ ---
+# --- BAĞLANTI ---
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Frekans").sheet1
 
-# Veri çekimi
-data = sheet.get_all_values()
-df = pd.DataFrame(data[1:], columns=data[0])
-df['FREKANS'] = pd.to_numeric(df['FREKANS'])
+# --- ARAYÜZ (ESKİ DÜZEN) ---
+st.title("💊 Nextpharma Kalıcı Kayıt")
 
-if 'ziyaret_sepeti' not in st.session_state: st.session_state.ziyaret_sepeti = []
+doktor = st.text_input("Doktor Adı:")
+kurum = st.text_input("Kurum:")
 
-st.title("💊 Nextpharma Ziyaret")
-
-# 1. Hastane Seçimi
-hastane = st.selectbox("Hastane Seç:", ["Seçiniz..."] + sorted(df['KURUM'].unique().tolist()))
-
-if hastane != "Seçiniz...":
-    df_hastane = df[df['KURUM'] == hastane]
-    for idx, row in df_hastane.iterrows():
-        # Doktor ve güncel frekans bilgisi
-        st.write(f"**{row['DOKTOR']}** (Kalan Frekans: {row['FREKANS']})")
-        if st.button(f"Ziyaret Ekle: {row['DOKTOR']}", key=f"btn_{idx}"):
-            st.session_state.ziyaret_sepeti.append({'idx': idx, 'Doktor': row['DOKTOR'], 'Kurum': row['KURUM']})
-            st.rerun()
-
-# 2. Sepet ve Kaydet
-st.divider()
-st.write(f"### 📋 Sepettekiler ({len(st.session_state.ziyaret_sepeti)})")
-if st.button("🚀 Hepsi Kaydet (Frekansları Düş)"):
-    for z in st.session_state.ziyaret_sepeti:
-        # Excel'de frekansı 1 azalt
-        yeni_frekans = int(df.at[z['idx'], 'FREKANS']) - 1
-        sheet.update_cell(z['idx'] + 2, 4, yeni_frekans) # Frekans sütunu 4. sütun
-    st.session_state.ziyaret_sepeti = []
-    st.success("Tüm ziyaretler işlendi!")
+if st.button("Kaydet"):
+    sheet.append_row([doktor, kurum])
+    st.success("Kaydedildi!")
     st.rerun()
+
+st.write("### 📋 Mevcut Kayıtlı Doktorlar:")
+data = sheet.get_all_values()
+if len(data) > 0:
+    df = pd.DataFrame(data[1:], columns=data[0]) 
+    st.table(df)
+else:
+    st.write("Henüz kayıt yok.")
