@@ -2,13 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Mobil ekran düzeni
+# Sayfa ayarları
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
-st.markdown("""
-    <style>
-    .block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("<style>.block-container {padding: 1rem;} div.stButton > button {width: 100%;}</style>", unsafe_allow_html=True)
 
 # Veri Yükleme
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
@@ -19,42 +15,43 @@ def load_data():
     df.columns = df.columns.str.strip()
     return df
 
-try:
-    df = load_data()
+df = load_data()
+
+if 'ziyaret_gecmisi' not in st.session_state:
+    st.session_state.ziyaret_gecmisi = []
+
+menu = st.sidebar.radio("Menü:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
+bugun_str = datetime.now().strftime("%d/%m/%Y")
+
+st.title("💊 Nextpharma Ziyaret Takip")
+
+if menu == "Ziyaret Girişi":
+    # Hastane seçimi
+    hastane_listesi = ['Seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
+    secilen_hastane = st.selectbox("Hastane Seç:", hastane_listesi)
+
+    if secilen_hastane != 'Seçiniz...':
+        df_filtre = df[df['KURUM'] == secilen_hastane]
+        
+        for i, row in df_filtre.iterrows():
+            st.write(f"**{row['DOKTOR']}** - {row['İHTİSAS']}")
+            # ZİYARET EKLE BUTONU BURADA
+            if st.button(f"Ziyaret Ekle: {row['DOKTOR']}", key=f"z_{i}"):
+                st.session_state.ziyaret_gecmisi.append({
+                    "Doktor": row['DOKTOR'],
+                    "Kurum": row['KURUM'],
+                    "Zaman": datetime.now().strftime("%H:%M"),
+                    "Tarih": bugun_str
+                })
+                st.success(f"{row['DOKTOR']} eklendi!")
+                st.rerun()
+
+elif menu == "Bugün Ne Yaptım?":
+    st.write("### 📋 Bugünün Ziyaretleri")
+    bugun_kayitlari = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
     
-    # Session State
-    if 'ziyaret_gecmisi' not in st.session_state:
-        st.session_state.ziyaret_gecmisi = []
-
-    # Menü
-    menu = st.sidebar.radio("Menü:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
-    
-    st.title("💊 Nextpharma Ziyaret Takip")
-
-    if menu == "Ziyaret Girişi":
-        # HATA DÜZELTİLDİ: Boş değerleri atıp metne çeviriyoruz
-        hastane_listesi = ['Seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
-        secilen_hastane = st.selectbox("Hastane Seç:", hastane_listesi)
-
-        if secilen_hastane != 'Seçiniz...':
-            df_filtre = df[df['KURUM'] == secilen_hastane]
-            for i, row in df_filtre.iterrows():
-                if st.button(f"Ekle: {row['DOKTOR']} ({row['İHTİSAS']})", key=f"z_{i}"):
-                    st.session_state.ziyaret_gecmisi.append({
-                        "Doktor": row['DOKTOR'],
-                        "Kurum": row['KURUM'],
-                        "Zaman": datetime.now().strftime("%H:%M")
-                    })
-                    st.rerun()
-
-    elif menu == "Bugün Ne Yaptım?":
-        st.write("### 📋 Günlük Ziyaretler")
-        if st.session_state.ziyaret_gecmisi:
-            for z in reversed(st.session_state.ziyaret_gecmisi):
-                st.write(f"⏰ {z['Zaman']} | **{z['Doktor']}** - {z['Kurum']}")
-        else:
-            st.info("Henüz ziyaret eklenmedi.")
-
-except Exception as e:
-    st.error("Veri yüklenirken hata oluştu, lütfen bağlantını kontrol et.")
-    st.write(e)
+    if bugun_kayitlari:
+        for z in reversed(bugun_kayitlari):
+            st.write(f"⏰ {z['Zaman']} | **{z['Doktor']}** ({z['Kurum']})")
+    else:
+        st.info("Henüz ziyaret kaydı yok.")
