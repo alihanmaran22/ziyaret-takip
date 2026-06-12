@@ -27,7 +27,9 @@ client = gspread.authorize(creds)
 
 # Sadece şu uzun ID kısmını alıyoruz
 sheet_id = "1mybm2kJtDHGUw5sruKp4tpSaV2PwINKfoTrIhCI82rY"
-sheet = client.open_by_key(sheet_id).sheet1
+# Buraya Google Sheets dosyanın tam adını yaz (tırnak içinde)
+dosya_adi = "Frekans" 
+sheet = client.open(dosya_adi).sheet1
 
 st.title("💊 Nextpharma Kalıcı Kayıt")
 doktor = st.text_input("Doktor Adı:")
