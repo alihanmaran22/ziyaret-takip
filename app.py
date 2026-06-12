@@ -14,11 +14,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets Fonksiyonu (Güvenli Secrets Yapısı)
+# Google Sheets Fonksiyonu (DÜZELTME: 403 hatası için scope genişletildi)
 def sheets_kaydet(ziyaretler):
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets']
+    # Google Drive ve Spreadsheets izinlerinin her ikisi de eklendi
+    scope = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
     
-    # Bilgileri kodun içinden değil, Streamlit Secrets panelinden güvenli şekilde çekiyoruz
     creds_dict = {
         "type": st.secrets["gcp_service_account"]["type"],
         "project_id": st.secrets["gcp_service_account"]["project_id"],
@@ -69,12 +72,27 @@ if menu == "Ziyaret Girişi":
             st.caption("Henüz bugün ziyaret kaydı girilmedi.")
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
-    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
+    
+    # DÜZELTME: Sütundan gelen verileri temizle ve tarih formatında olan (xx/xx/xxxx) verileri listeden tamamen engelle
+    ham_hastaneler = df['KURUM'].dropna().astype(str).str.strip().unique().tolist()
+    temiz_hastaneler = []
+    for h in ham_hastaneler:
+        # Eğer veri "/" içeriyorsa ve uzunluğu tarih gibiyse listeye alma
+        if "/" in h and len(h) <= 10:
+            continue
+        if h != "" and h != "nan":
+            temiz_hastaneler.append(h)
+            
+    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(temiz_hastaneler)
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
     if secilen_hastane != 'Lütfen hastane seçiniz...':
         df_filtre = df[df['KURUM'] == secilen_hastane]
-        branslar = ['Tümü'] + sorted(df_filtre['İHTİSAS'].dropna().astype(str).str.strip().unique().tolist())
+        
+        ham_branslar = df_filtre['İHTİSAS'].dropna().astype(str).str.strip().unique().tolist()
+        temiz_branslar = [b for b in ham_branslar if b != "" and b != "nan" and not ("/" in b and len(b) <= 10)]
+        
+        branslar = ['Tümü'] + sorted(temiz_branslar)
         secilen_brans = st.selectbox("Branş Seç:", branslar)
         if secilen_brans != 'Tümü':
             df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
