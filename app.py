@@ -18,7 +18,11 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QB
 @st.cache_data(ttl=60)
 def load_data():
     df = pd.read_csv(SHEET_URL, header=0)
+    # Sütun isimlerindeki gizli boşlukları temizle
     df.columns = df.columns.str.strip()
+    # Eşleşme hatası olmaması için hücrelerin içindeki gizli boşlukları da temizle kankam
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str).str.strip()
     return df
 
 df = load_data()
@@ -35,12 +39,12 @@ bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] =
 
 if menu == "Ziyaret Girişi":
     # Seçim alanları tamamen temiz açılır liste
-    hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
+    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist())
     secilen_hastane = st.selectbox("Hastane:", hastaneler)
 
     if secilen_hastane != 'Lütfen hastane seçiniz...':
         df_filtre = df[df['KURUM'] == secilen_hastane]
-        branslar = ['Tümü'] + df_filtre['İHTİSAS'].unique().tolist()
+        branslar = ['Tümü'] + sorted(df_filtre['İHTİSAS'].unique().tolist())
         secilen_brans = st.selectbox("Branş:", branslar)
         
         if secilen_brans != 'Tümü':
@@ -57,3 +61,34 @@ if menu == "Ziyaret Girişi":
                 kalan = int(row['FREKANS']) - yapilan
                 
                 # Kritik Frekans Uyarısı
+                uyari_etiketi = ""
+                if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
+                    uyari_etiketi = " ⚠️"
+                
+                # Doktor İsmi - Tamamen küçültülmüş mobil uyumlu format
+                st.markdown(f"**{row['DOKTOR']}** <span style='font-size:12px; color:#888;'>({row['İHTİSAS']})</span>{uyari_etiketi}", unsafe_allow_html=True)
+                
+                # Tüm butonlar ve yazılar tek satırda
+                cols = st.columns([2, 1.2, 1, 1])
+                
+                kalan_metin = f"<p style='font-size:13px; margin-top:5px;'>Kal: <b>{kalan}</b>/{row['FREKANS']}</p>"
+                cols[0].markdown(kalan_metin, unsafe_allow_html=True)
+                
+                # Ziyaret Et Butonu
+                if cols[1].button("Ziyaret", key=f"z_{i}"):
+                    aktif_not = st.session_state.get(f"temp_not_{i}", "").strip()
+                    st.session_state.ziyaret_gecmisi.append({
+                        "Doktor": row['DOKTOR'], 
+                        "Tarih": bugun_str,
+                        "Saat": datetime.now().strftime("%H:%M"),
+                        "Kurum": row['KURUM'], 
+                        "Brans": row['İHTİSAS'],
+                        "Not": aktif_not if aktif_not else "Not eklenmedi."
+                    })
+                    if f"temp_not_{i}" in st.session_state:
+                        del st.session_state[f"temp_not_{i}"]
+                    st.rerun()
+                
+                # İptal Et Butonu
+                if cols[2].button("İptal", key=f"i_{i}"):
+                    for j, z in reversed(list(enumerate(st
