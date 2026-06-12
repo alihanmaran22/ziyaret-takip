@@ -41,7 +41,7 @@ bugun_ziyaretleri = [
     z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str
 ]
 
-st.title("💊 Nextpharma Ziyaret Takip")
+st.title("💊 Neutec Ziyaret Takip")
 
 if menu == "Ziyaret Girişi":
     # 1. Bugün Ziyaret Edilenler Paneli (Çakışma Önleyici Güvenli Sistem 🚀)
@@ -157,7 +157,7 @@ elif menu == "Bugün Ne Yaptım?":
         tum_ziyaretler_metni = "\n".join(metin_parcalari)
         
         st.markdown("### 🚀 Füzyon Hızlı Aktarım Paneli")
-        st.caption("Aşağıdaki kutunun sağ üst köşesindeki kopyalama butonuna basarak listeyi direkt alabilirsin kankam:")
+        st.caption("Aşağıdaki kutunun sağ üst köşesindeki kopyalama butonuna basarak listeyi direkt alabilirsin")
         st.code(tum_ziyaretler_metni, language="text")
         
     else:
