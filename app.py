@@ -14,10 +14,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets Fonksiyonu
+# Google Sheets Fonksiyonu (Güvenli Secrets Yapısı)
 def sheets_kaydet(ziyaretler):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets']
-    creds = ServiceAccountCredentials.from_json_keyfile_name('anahtar.json', scope)
+    
+    # Bilgileri kodun içinden değil, Streamlit Secrets panelinden güvenli şekilde çekiyoruz
+    creds_dict = {
+        "type": st.secrets["gcp_service_account"]["type"],
+        "project_id": st.secrets["gcp_service_account"]["project_id"],
+        "private_key_id": st.secrets["gcp_service_account"]["private_key_id"],
+        "private_key": st.secrets["gcp_service_account"]["private_key"].replace("\\n", "\n"),
+        "client_email": st.secrets["gcp_service_account"]["client_email"],
+        "client_id": st.secrets["gcp_service_account"]["client_id"],
+        "auth_uri": st.secrets["gcp_service_account"]["auth_uri"],
+        "token_uri": st.secrets["gcp_service_account"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["gcp_service_account"]["client_x509_cert_url"]
+    }
+    
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     sheet = client.open("Frekans").sheet1
     for z in ziyaretler:
@@ -54,8 +69,6 @@ if menu == "Ziyaret Girişi":
             st.caption("Henüz bugün ziyaret kaydı girilmedi.")
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
-    
-    # HATA DÜZELTİLDİ: Boş değerleri atıp hepsini metne çevirerek sıralıyoruz
     hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -105,11 +118,14 @@ elif menu == "Bugün Ne Yaptım?":
     st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
     
     if st.button("🚀 Tüm Ziyaretleri Google Sheets'e Gönder"):
-        try:
-            sheets_kaydet(bugun_ziyaretleri)
-            st.success("Tüm ziyaretler buluta aktarıldı!")
-        except Exception as e: 
-            st.error(f"Hata: {e}")
+        if not bugun_ziyaretleri:
+            st.warning("Gönderilecek ziyaret kaydı bulunmuyor.")
+        else:
+            try:
+                sheets_kaydet(bugun_ziyaretleri)
+                st.success("Tüm ziyaretler buluta aktarıldı!")
+            except Exception as e: 
+                st.error(f"Hata: {e}")
     
     st.markdown("---")
     if bugun_ziyaretleri:
