@@ -3,52 +3,67 @@ import pandas as pd
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import base64
 
-# Mobil ekran düzeni ve Galatasaray Arka Plan Tasarımı
+# Mobil ekran düzeni
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
-st.markdown("""
+
+# Klasördeki resmi CSS'e gömmek için fonksiyon
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+# Resim kontrolü (Yüklediğin resmin adı 'arka-plan.png' olmalı)
+try:
+    bin_str = get_base64_of_bin_file('arka-plan.png')
+    bg_image_css = f"url(data:image/png;base64,{bin_str})"
+except FileNotFoundError:
+    bg_image_css = "none"
+
+# Arka Plan ve Okunurluk Tasarımı
+st.markdown(f"""
     <style>
-    /* Arka plan fotoğrafı ve okunurluk katmanı */
-    .stApp {
+    /* Arka plan fotoğrafı ve opaklık katmanı */
+    .stApp {{
         background-image: linear-gradient(rgba(0, 0, 0, 0.70), rgba(0, 0, 0, 0.70)), 
-                          url("https://scontent.fada2-2.fna.fbcdn.net/v/t39.30808-6/400746646_649551844057515_8144807201101015173_n.jpg?stp=dst-jpg_tt6&cstp=mx710x710&ctp=s710x710&_nc_cat=100&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=hAmnm4I8kMcQ7kNvwGIHZ3Q&_nc_oc=AdodtU9gycppxDb9_C5Sl8yg_uiGSAGIarfFuKNSxFbgi4Y_eCAGioCIvprn4glMAGA&_nc_zt=23&_nc_ht=scontent.fada2-2.fna&_nc_gid=1092aBa1x9U4TRAjSz1dVg&_nc_ss=7b289&oh=00_Af9dMpgBXEJqisYROIZImb2zldtu7JH_MTQ9U0d_mOLYhw&oe=6A31ECE4");
+                          {bg_image_css};
         background-attachment: fixed;
         background-size: cover;
         background-position: center top;
-    }
+    }}
     
-    /* Tüm metinlerin ekranda parlaması ve net okunması için */
-    h1, h2, h3, p, span, label, .stMarkdown, .stCaption {
+    /* Yazıların net okunması için beyaz yapıyoruz */
+    h1, h2, h3, p, span, label, .stMarkdown, .stCaption {{
         color: #ffffff !important;
         font-weight: 500;
-    }
+    }}
     
-    /* Seçim kutularının (selectbox) içindeki yazıların görünürlüğü */
-    div[data-baseweb="select"] * {
+    /* Seçim kutularının (selectbox) içindeki yazıların rengi */
+    div[data-baseweb="select"] * {{
         color: #333333 !important;
-    }
+    }}
     
     /* Mobil ekran boşluk ayarları */
-    .block-container {
+    .block-container {{
         padding-top: 1rem; 
         padding-bottom: 1rem; 
         padding-left: 0.5rem; 
         padding-right: 0.5rem;
-    }
+    }}
     
     /* Butonların genel düzeni */
-    div.stButton > button {
+    div.stButton > button {{
         width: 100%; 
         padding: 0.2rem 0.4rem; 
         font-size: 13px; 
         height: auto;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets Fonksiyonu (DÜZELTME: 403 hatası için scope genişletildi)
+# Google Sheets Fonksiyonu
 def sheets_kaydet(ziyaretler):
-    # Google Drive ve Spreadsheets izinlerinin her ikisi de eklendi
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
@@ -105,11 +120,9 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
     
-    # DÜZELTME: Sütundan gelen verileri temizle ve tarih formatında olan (xx/xx/xxxx) verileri listeden tamamen engelle
     ham_hastaneler = df['KURUM'].dropna().astype(str).str.strip().unique().tolist()
     temiz_hastaneler = []
     for h in ham_hastaneler:
-        # Eğer veri "/" içeriyorsa ve uzunluğu tarih gibiyse listeye alma
         if "/" in h and len(h) <= 10:
             continue
         if h != "" and h != "nan":
@@ -141,63 +154,4 @@ if menu == "Ziyaret Girişi":
                 uyari = " ⚠️ [KRİTİK]" if kalan > 0 and kalan >= (dr_frekans / 2) else ""
                 
                 st.write(f"**{dr_adi}** - {dr_brans} {uyari}")
-                cols = st.columns([1.5, 1.1, 1.1, 0.8])
-                cols[0].write(f"Kal: {kalan}/{dr_frekans}")
-                
-                if cols[1].button("Ziyaret", key=f"z_{i}"):
-                    k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
-                    st.session_state.ziyaret_gecmisi.append({
-                        "Doktor": dr_adi, "Tarih": bugun_str, "Saat": datetime.now().strftime("%H:%M"),
-                        "Kurum": dr_kurum, "Brans": dr_brans, "Not": k_notu if k_notu else "Not eklenmedi."
-                    })
-                    if f"temp_not_{i}" in st.session_state: del st.session_state[f"temp_not_{i}"]
-                    st.rerun()
-                
-                if cols[2].button("İptal", key=f"i_{i}"):
-                    for j in range(len(st.session_state.ziyaret_gecmisi) - 1, -1, -1):
-                        if st.session_state.ziyaret_gecmisi[j]['Doktor'] == dr_adi:
-                            del st.session_state.ziyaret_gecmisi[j]; break
-                    st.rerun()
-                
-                with cols[3].expander("✍️"):
-                    st.text_input("Not:", key=f"temp_not_{i}", placeholder="Not...", label_visibility="collapsed")
-                st.markdown("<div style='margin: 1px 0; border-bottom: 1px dashed #333;'></div>", unsafe_allow_html=True)
-
-elif menu == "Bugün Ne Yaptım?":
-    st.markdown(f"### 📋 Bugün Ne Yaptım? ({bugun_str})")
-    st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
-    
-    if st.button("🚀 Tüm Ziyaretleri Google Sheets'e Gönder"):
-        if not bugun_ziyaretleri:
-            st.warning("Gönderilecek ziyaret kaydı bulunmuyor.")
-        else:
-            try:
-                sheets_kaydet(bugun_ziyaretleri)
-                st.success("Tüm ziyaretler buluta aktarıldı!")
-            except Exception as e: 
-                st.error(f"Hata: {e}")
-    
-    st.markdown("---")
-    if bugun_ziyaretleri:
-        for z in reversed(bugun_ziyaretleri):
-            st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
-            if z['Not'] != "Not eklenmedi.": st.info(f"💬 {z['Not']}")
-            st.markdown("---")
-    else: 
-        st.info("Henüz ziyaret kaydı yok.")
-
-elif menu == "Ziyaret Detay Raporu":
-    st.markdown("### 📋 Ziyaret Raporu")
-    rapor_tarihi = st.date_input("Tarih Seçin:", datetime.now())
-    tarih_str = rapor_tarihi.strftime("%d/%m/%Y")
-    gunluk_kayitlar = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == tarih_str]
-    st.metric(label="Toplam Ziyaret", value=f"{len(gunluk_kayitlar)} Kişi")
-    if gunluk_kayitlar:
-        df_rapor = pd.DataFrame(gunluk_kayitlar).sort_values(by='Saat')
-        for brans in df_rapor['Brans'].unique():
-            with st.expander(f"🏥 {brans}"):
-                for _, z in df_rapor[df_rapor['Brans'] == brans].iterrows():
-                    st.write(f"✅ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
-                    if z['Not'] != "Not eklenmedi.": st.caption(f"💬 Not: {z['Not']}")
-    else: 
-        st.warning("Seçilen tarihe ait kayıt bulunamadı.")
+                cols = st.columns(
