@@ -34,7 +34,7 @@ bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 if menu == "Ziyaret Girişi":
-    # Seçim alanları
+    # Seçim alanları tamamen temiz açılır liste
     hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
     secilen_hastane = st.selectbox("Hastane:", hastaneler)
 
@@ -61,9 +61,15 @@ if menu == "Ziyaret Girişi":
                 if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
                     uyari_etiketi = " ⚠️"
                 
-                # Doktor İsmi - Küçültülmüş ve kalın formatta
+                # Doktor İsmi - Tamamen küçültülmüş mobil uyumlu format
                 st.markdown(f"**{row['DOKTOR']}** <span style='font-size:12px; color:#888;'>({row['İHTİSAS']})</span>{uyari_etiketi}", unsafe_allow_html=True)
                 
-                # Mobilde her şeyi tek satıra sığdırmak için 4 sütunlu kompakt düzen
+                # Tüm butonlar ve yazılar tek satırda (Hatalı f-string tamamen düzeltildi)
                 cols = st.columns([2, 1.2, 1, 1])
-                cols[0].markdown(f"<p style='font-size:13px; margin-top:5px;'>Kal
+                
+                kalan_metin = f"<p style='font-size:13px; margin-top:5px;'>Kal: <b>{kalan}</b>/{row['FREKANS']}</p>"
+                cols[0].markdown(kalan_metin, unsafe_allow_html=True)
+                
+                # Ziyaret Et Butonu
+                if cols[1].button("Ziyaret", key=f"z_{i}"):
+                    aktif_not = st.session_state.get(f"temp_not_{i}",
