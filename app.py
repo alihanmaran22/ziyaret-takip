@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 
 # Mobil ekranlarda boşlukları sıfırlayan ve butonları küçülten CSS
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
@@ -40,22 +41,24 @@ bugun_ziyaretleri = [
     z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str
 ]
 
-st.title("💊 Neutec İlaç Alihan Maran Ziyaret Takip")
+st.title("💊 Nextpharma Ziyaret Takip")
 
 if menu == "Ziyaret Girişi":
-    # 1. Bugün Ziyaret Edilenler Paneli (İptal Butonlu Yeni Versiyon 🚀)
+    # 1. Bugün Ziyaret Edilenler Paneli (Çakışma Önleyici Güvenli Sistem 🚀)
     panel_baslik = f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"
     with st.expander(panel_baslik):
         if bugun_ziyaretleri:
-            # Reversed listeyi iterate ederken index takibi için enumerate kullanıyoruz
-            for idx, z in reversed(list(enumerate(st.session_state.ziyaret_gecmisi))):
+            # Listeyi tersten gösterirken index karmaşasını önlemek için kopyası üzerinden gidiyoruz
+            for z in reversed(st.session_state.ziyaret_gecmisi):
                 if z['Tarih'] == bugun_str:
                     top_cols = st.columns([4, 1])
                     top_cols[0].write(f"⏰ {z['Saat']} | {z['Doktor']} - {z['Brans']} ({z['Kurum']})")
                     
-                    # Üst paneldeki anlık iptal butonu
-                    if top_cols[1].button("❌ İptal", key=f"top_del_{idx}"):
-                        del st.session_state.ziyaret_gecmisi[idx]
+                    # Benzersiz id ile temiz silme işlemi
+                    if top_cols[1].button("❌ İptal", key=f"top_del_{z['id']}"):
+                        st.session_state.ziyaret_gecmisi = [
+                            item for item in st.session_state.ziyaret_gecmisi if item['id'] != z['id']
+                        ]
                         st.rerun()
         else:
             st.caption("Henüz bugün ziyaret kaydı girilmedi.")
@@ -90,4 +93,94 @@ if menu == "Ziyaret Girişi":
                 yapilan = len([
                     z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == dr_adi
                 ])
-                kalan = dr_frekans
+                kalan = dr_frekans - yapilan
+                
+                uyari_etiketi = ""
+                if kalan > 0 and kalan >= (dr_frekans / 2):
+                    uyari_etiketi = " ⚠️ [KRİTİK]"
+                
+                st.write(f"**{dr_adi}** - {dr_brans} {uyari_etiketi}")
+                
+                cols = st.columns([1.5, 1.1, 1.1, 0.8])
+                cols[0].write(f"Kal: {kalan}/{dr_frekans}")
+                
+                if cols[1].button("Ziyaret", key=f"z_{i}"):
+                    k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
+                    st.session_state.ziyaret_gecmisi.append({
+                        "id": f"{int(time.time()*1000)}_{i}",  # Çakışmayı önleyen benzersiz milisaniye ID'si
+                        "Doktor": dr_adi, 
+                        "Tarih": bugun_str,
+                        "Saat": datetime.now().strftime("%H:%M"),
+                        "Kurum": dr_kurum, 
+                        "Brans": dr_brans,
+                        "Not": k_notu if k_notu else "Not eklenmedi."
+                    })
+                    if f"temp_not_{i}" in st.session_state:
+                        del st.session_state[f"temp_not_{i}"]
+                    st.rerun()
+                
+                if cols[2].button("İptal", key=f"i_{i}"):
+                    gecmis = st.session_state.ziyaret_gecmisi
+                    for j in range(len(gecmis) - 1, -1, -1):
+                        if gecmis[j]['Doktor'] == dr_adi:
+                            del st.session_state.ziyaret_gecmisi[j]
+                            break
+                    st.rerun()
+                
+                with cols[3].expander("✍️"):
+                    st.text_input(
+                        "Not:", 
+                        key=f"temp_not_{i}", 
+                        placeholder="Not...",
+                        label_visibility="collapsed"
+                    )
+                
+                st.markdown("<div style='margin: 1px 0; border-bottom: 1px dashed #333;'></div>", unsafe_allow_html=True)
+
+elif menu == "Bugün Ne Yaptım?":
+    st.markdown(f"### 📋 Bugün Ne Yaptım? ({bugun_str})")
+    st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
+    st.markdown("---")
+    
+    metin_parcalari = []
+    
+    if bugun_ziyaretleri:
+        for z in reversed(bugun_ziyaretleri):
+            st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
+            if z['Not'] != "Not eklenmedi.":
+                st.info(f"💬 {z['Not']}")
+                metin_parcalari.append(f"{z['Saat']} | {z['Doktor']} ({z['Kurum']}) -> Not: {z['Not']}")
+            else:
+                metin_parcalari.append(f"{z['Saat']} | {z['Doktor']} ({z['Kurum']})")
+            st.markdown("---")
+        
+        tum_ziyaretler_metni = "\n".join(metin_parcalari)
+        
+        st.markdown("### 🚀 Füzyon Hızlı Aktarım Paneli")
+        st.caption("Aşağıdaki kutunun sağ üst köşesindeki kopyalama butonuna basarak listeyi direkt alabilirsin kankam:")
+        st.code(tum_ziyaretler_metni, language="text")
+        
+    else:
+        st.info("Henüz ziyaret kaydı yok.")
+
+elif menu == "Ziyaret Detay Raporu":
+    st.markdown("### 📋 Ziyaret Raporu")
+    rapor_tarihi = st.date_input("Tarih Seçin:", datetime.now())
+    tarih_str = rapor_tarihi.strftime("%d/%m/%Y")
+    
+    gunluk_kayitlar = [
+        z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == tarih_str
+    ]
+    st.metric(label="Toplam Ziyaret", value=f"{len(gunluk_kayitlar)} Kişi")
+    
+    if gunluk_kayitlar:
+        df_rapor = pd.DataFrame(gunluk_kayitlar).sort_values(by='Saat')
+        for brans in df_rapor['Brans'].unique():
+            with st.expander(f"🏥 {brans}"):
+                brans_df = df_rapor[df_rapor['Brans'] == brans]
+                for _, z in brans_df.iterrows():
+                    st.write(f"✅ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
+                    if z['Not'] != "Not eklenmedi.":
+                        st.caption(f"💬 Not: {z['Not']}")
+    else:
+        st.warning("Seçilen tarihe ait kayıt bulunamadı.")
