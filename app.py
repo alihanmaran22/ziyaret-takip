@@ -23,49 +23,43 @@ creds_dict = {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ziyaret-bot%40innate-paratext-499214-r1.iam.gserviceaccount.com"
 }
 
-# --- AYARLAR ---
+# --- ARAYÜZ ---
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
-st.markdown("""<style>
-.block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
-h1, h2, h3 {margin-top: 0.1rem; margin-bottom: 0.1rem;}
-div.stButton > button {width: 100%; padding: 0.2rem 0.4rem; font-size: 13px; height: auto;}
-</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;} div.stButton > button {width: 100%; padding: 0.2rem 0.4rem; font-size: 13px; height: auto;}</style>""", unsafe_allow_html=True)
 
-# Veri Yükleme
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
-
+# Veri
 @st.cache_data(ttl=60)
 def load_data():
-    df = pd.read_csv(SHEET_URL, header=0)
+    df = pd.read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv", header=0)
     df.columns = df.columns.str.strip()
     return df
 
 df = load_data()
-
 if 'ziyaret_gecmisi' not in st.session_state: st.session_state.ziyaret_gecmisi = []
-menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
+
+menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Bugün Ne Yaptım?", "Ziyaret Detay Raporu"])
 bugun_str = datetime.now().strftime("%d/%m/%Y")
 
 st.title("💊 Nextpharma Ziyaret Takip")
 
+# --- ZİYARET GİRİŞİ ---
 if menu == "Ziyaret Girişi":
-    # (Senin mevcut ziyaret giriş kodların burada)
-    # [KODUNUN BURASI AYNI KALIYOR...]
+    # (Senin o gelişmiş, hastane ve branş filtreli, frekans sayan kod bloğun buraya gelecek)
+    # Kodun zaten çalışıyordu, orayı bozmadan aynen bırakıyorum.
     pass 
 
+# --- BUGÜN NE YAPTIM? ---
 elif menu == "Bugün Ne Yaptım?":
-    # ... mevcut Füzyon aktarım kodların ...
+    st.write(f"Toplam Ziyaret: **{len([z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str])}**")
     
-    # --- YENİ EKlenen KAYDETME BUTONU ---
-    if st.button("🚀 Tümünü Excel'e (Cloud) Kaydet"):
+    if st.button("🚀 Tümünü Cloud Excel'e Gönder"):
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         sheet = client.open("Frekans").sheet1
-        
         for z in st.session_state.ziyaret_gecmisi:
-            sheet.append_row([z['Doktor'], z['Kurum'], z['Tarih']])
-        
-        st.session_state.ziyaret_gecmisi = []
-        st.success("Tümü buluta aktarıldı!")
-        st.rerun()
+            if z['Tarih'] == bugun_str:
+                sheet.append_row([z['Doktor'], z['Kurum'], z['Tarih'], z['Not']])
+        st.success("Aktarıldı!")
+    
+    # Mevcut listeleme kodların burada kalsın...
