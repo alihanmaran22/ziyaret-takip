@@ -14,9 +14,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets Fonksiyonu (DÜZELTME: 403 hatası için scope genişletildi)
+# Google Sheets Fonksiyonu (Verilerin kaydedildiği sekme: Ziyaretler)
 def sheets_kaydet(ziyaretler):
-    # Google Drive ve Spreadsheets izinlerinin her ikisi de eklendi
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
@@ -37,12 +36,23 @@ def sheets_kaydet(ziyaretler):
     
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
-    sheet = client.open("Frekans").sheet1
+    
+    SHEET_ADI = "Frekans"     # Google Sheets dosya adın
+    SEKME_ADI = "Ziyaretler"  # Verilerin yazılacağı sekme adı
+    
+    try:
+        sheet = client.open(SHEET_ADI).worksheet(SEKME_ADI)
+    except gspread.exceptions.WorksheetNotFound:
+        # Eğer "Ziyaretler" adında bir sekme yoksa otomatik oluşturur
+        sheet = client.open(SHEET_ADI).add_worksheet(title=SEKME_ADI, rows="1000", cols="20")
+        sheet.append_row(["Doktor", "Kurum", "Branş", "Tarih", "Saat", "Not"])
+        
     for z in ziyaretler:
         sheet.append_row([z['Doktor'], z['Kurum'], z['Brans'], z['Tarih'], z['Saat'], z['Not']])
 
-# Veri Yükleme
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
+# Veri Yükleme (CSV çıktısını doğrudan "Doktor Listesi" sekmesinden alacak şekilde güncellendi)
+# URL'nin sonuna gidip gidip "gid" parametresiyle Doktor Listesi sekmesini hedefliyoruz
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?gid=0&output=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
@@ -73,14 +83,12 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
     
-    # DÜZELTME: Sütundan gelen verileri temizle ve tarih formatında olan (xx/xx/xxxx) verileri listeden tamamen engelle
     ham_hastaneler = df['KURUM'].dropna().astype(str).str.strip().unique().tolist()
     temiz_hastaneler = []
     for h in ham_hastaneler:
-        # Eğer veri "/" içeriyorsa ve uzunluğu tarih gibiyse listeye alma
         if "/" in h and len(h) <= 10:
             continue
-        if h != "" and h != "nan":
+        if h != "" and h != "nan" and h != "KURUM":
             temiz_hastaneler.append(h)
             
     hastaneler = ['Lütfen hastane seçiniz...'] + sorted(temiz_hastaneler)
@@ -141,7 +149,7 @@ elif menu == "Bugün Ne Yaptım?":
         else:
             try:
                 sheets_kaydet(bugun_ziyaretleri)
-                st.success("Tüm ziyaretler buluta aktarıldı!")
+                st.success("Tüm ziyaretler 'Ziyaretler' sekmesine aktarıldı!")
             except Exception as e: 
                 st.error(f"Hata: {e}")
     
