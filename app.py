@@ -14,13 +14,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets Fonksiyonu (Verilerin kaydedildiği sekme: Ziyaretler)
-def sheets_kaydet(ziyaretler):
+# Google Cloud Ortak Bağlantı Yapısı
+def get_gspread_client():
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
-    
     creds_dict = {
         "type": st.secrets["gcp_service_account"]["type"],
         "project_id": st.secrets["gcp_service_account"]["project_id"],
@@ -33,33 +32,47 @@ def sheets_kaydet(ziyaretler):
         "auth_provider_x509_cert_url": st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
         "client_x509_cert_url": st.secrets["gcp_service_account"]["client_x509_cert_url"]
     }
-    
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    
+    return gspread.authorize(creds)
+
+# Google Sheets Veri Kaydetme Fonksiyonu
+def sheets_kaydet(ziyaretler):
+    client = get_gspread_client()
     SHEET_ADI = "Frekans"     # Google Sheets dosya adın
     SEKME_ADI = "Ziyaretler"  # Verilerin yazılacağı sekme adı
     
     try:
         sheet = client.open(SHEET_ADI).worksheet(SEKME_ADI)
     except gspread.exceptions.WorksheetNotFound:
-        # Eğer "Ziyaretler" adında bir sekme yoksa otomatik oluşturur
         sheet = client.open(SHEET_ADI).add_worksheet(title=SEKME_ADI, rows="1000", cols="20")
         sheet.append_row(["Doktor", "Kurum", "Branş", "Tarih", "Saat", "Not"])
         
     for z in ziyaretler:
         sheet.append_row([z['Doktor'], z['Kurum'], z['Brans'], z['Tarih'], z['Saat'], z['Not']])
 
-# Veri Yükleme (CSV çıktısını doğrudan "Doktor Listesi" sekmesinden alacak şekilde güncellendi)
-# URL'nin sonuna gidip gidip "gid" parametresiyle Doktor Listesi sekmesini hedefliyoruz
-SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?gid=0&output=csv"
-
+# Veri Yükleme (DÜZELTME: İnternet linki yerine veriyi doğrudan API ile güvenli çekiyoruz)
 @st.cache_data(ttl=60)
 def load_data():
-    df = pd.read_csv(SHEET_URL, header=0)
+    client = get_gspread_client()
+    SHEET_ADI = "Frekans"
+    SEKME_ADI = "Doktor Listesi"
+    
+    sheet = client.open(SHEET_ADI).worksheet(SEKME_ADI)
+    all_values = sheet.get_all_values()
+    
+    if all_values:
+        df = pd.DataFrame(all_values[1:], columns=all_values[0])
+    else:
+        df = pd.DataFrame(columns=['DOKTOR', 'KURUM', 'İHTİSAS', 'FREKANS'])
+        
     df.columns = df.columns.str.strip()
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype(str).str.strip()
+        
+    # Sayısal değere dönüştürme ve güvenlik kontrolü
+    if 'FREKANS' in df.columns:
+        df['FREKANS'] = pd.to_numeric(df['FREKANS'], errors='coerce').fillna(0).astype(int)
+        
     return df
 
 df = load_data()
