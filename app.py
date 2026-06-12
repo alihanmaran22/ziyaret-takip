@@ -57,7 +57,6 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
 
-    # Kırpılmayı önlemek için listeler kısaltıldı
     hastane_listesi = sorted(df['KURUM'].unique().tolist())
     hastaneler = ['Lütfen hastane seçiniz...'] + hastane_listesi
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
@@ -77,7 +76,6 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Bu kriterlere uygun doktor bulunamadı.")
         else:
-            # Güvenli döngü ve kompakt jilet gibi liste düzeni
             for i, row in df_filtre.iterrows():
                 dr_adi = row['DOKTOR']
                 dr_brans = row['İHTİSAS']
@@ -89,21 +87,15 @@ if menu == "Ziyaret Girişi":
                 ])
                 kalan = dr_frekans - yapilan
                 
-                # Kritik Durum Uyarı Mantığı
                 uyari_etiketi = ""
                 if kalan > 0 and kalan >= (dr_frekans / 2):
                     uyari_etiketi = " ⚠️ [KRİTİK]"
                 
-                # Doktor İsmi ve Branşı
                 st.write(f"**{dr_adi}** - {dr_brans} {uyari_etiketi}")
                 
-                # Butonlar ve Kalan Sayısı için Yan Yana Kolonlar
                 cols = st.columns([1.5, 1.1, 1.1, 0.8])
-                
-                # Kalan Sayısı Bilgisi
                 cols[0].write(f"Kal: {kalan}/{dr_frekans}")
                 
-                # Ziyaret Et Butonu
                 if cols[1].button("Ziyaret", key=f"z_{i}"):
                     k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
                     st.session_state.ziyaret_gecmisi.append({
@@ -118,7 +110,6 @@ if menu == "Ziyaret Girişi":
                         del st.session_state[f"temp_not_{i}"]
                     st.rerun()
                 
-                # İptal Et Butonu
                 if cols[2].button("İptal", key=f"i_{i}"):
                     gecmis = st.session_state.ziyaret_gecmisi
                     for j in range(len(gecmis) - 1, -1, -1):
@@ -127,7 +118,6 @@ if menu == "Ziyaret Girişi":
                             break
                     st.rerun()
                 
-                # Not Giriş Balonu (Küçük ✍️ simgesi)
                 with cols[3].expander("✍️"):
                     st.text_input(
                         "Not:", 
@@ -143,12 +133,28 @@ elif menu == "Bugün Ne Yaptım?":
     st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
     st.markdown("---")
     
+    # Füzyon için kopyalanacak temiz metni burada hazırlıyoruz kankam
+    metin_parcalari = []
+    
     if bugun_ziyaretleri:
         for z in reversed(bugun_ziyaretleri):
             st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
             if z['Not'] != "Not eklenmedi.":
                 st.info(f"💬 {z['Not']}")
+                # Kopyalanacak metin formatı: Saat | Doktor Adı (Kurum) - Not
+                metin_parcalari.append(f"⏰ {z['Saat']} | {z['Doktor']} ({z['Kurum']}) -> Not: {z['Not']}")
+            else:
+                metin_parcalari.append(f"⏰ {z['Saat']} | {z['Doktor']} ({z['Kurum']})")
             st.markdown("---")
+        
+        # Tüm parçaları alt alta birleştiriyoruz
+        tum_ziyaretler_metni = "\n".join(metin_parcalari)
+        
+        st.markdown("### 🚀 Füzyon Hızlı Aktarım Paneli")
+        # Tek tıkla kopyalamayı sağlayan yeni Streamlit bileşeni
+        st.copy_to_clipboard(tum_ziyaretler_metni)
+        st.success("Yukarıdaki tüm ziyaret listesi otomatik olarak panona kopyalandı! Direkt Füzyon'a baka baka girebilirsin kankam.")
+        
     else:
         st.info("Henüz ziyaret kaydı yok.")
 
