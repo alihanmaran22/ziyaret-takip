@@ -1,6 +1,7 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
 
 # Özel anahtarını değişken olarak tanımladık
 PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
@@ -39,4 +40,11 @@ if st.button("Kaydet"):
     sheet.append_row([doktor, kurum])
     st.success("Kaydedildi!")
 
-st.write("Mevcut Kayıtlar:", sheet.get_all_values())
+st.write("### 📋 Mevcut Kayıtlı Doktorlar:")
+data = sheet.get_all_values()
+if len(data) > 0:
+    # İlk satırı başlık olarak al, gerisini tabloya dök
+    df = pd.DataFrame(data[1:], columns=data[0]) 
+    st.table(df)
+else:
+    st.write("Henüz kayıt yok.")
