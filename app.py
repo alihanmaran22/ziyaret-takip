@@ -24,7 +24,7 @@ bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 if menu == "Ziyaret Girişi":
-    # Başlık kaldırıldı, ekran doğrudan arama ile başlıyor
+    # İstediğin gibi: Büyük "Nextpharma Ziyaret Takip" başlığı kaldırıldı!
     
     # Hızlı Doktor Arama Kutusu
     arama_sorgusu = st.text_input("🔍 Doktor İsmi ile Ara:", "").strip().lower()
@@ -50,7 +50,7 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Aranan kriterlere uygun doktor bulunamadı.")
         
-        # ESKİ SADE LİSTE: Doktor kartları yan yana butonlarla listeleniyor
+        # ESKİ SADE LİSTE: Doktorlar orijinal kompakt yapısıyla listeleniyor
         for i, row in df_filtre.iterrows():
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
             kalan = int(row['FREKANS']) - yapilan
@@ -60,5 +60,21 @@ if menu == "Ziyaret Girişi":
             if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
                 uyari_etiketi = " ⚠️ [KRİTİK]"
             
-            # Doktor başlığı ve branşı
-            st.write(f"### **{row
+            # Doktor başlığı ve branşı (Hatasız düz string biçimi)
+            st.markdown(f"### **{row['DOKTOR']}** ({row['İHTİSAS']}){uyari_etiketi}")
+            
+            cols = st.columns([3, 1, 1])
+            cols[0].write(f"**Kalan Ziyaret: {kalan}** / {row['FREKANS']}")
+            
+            # Ziyaret Et Butonu
+            if cols[1].button("Ziyaret Et", key=f"z_{i}"):
+                aktif_not = st.session_state.get(f"temp_not_{i}", "").strip()
+                st.session_state.ziyaret_gecmisi.append({
+                    "Doktor": row['DOKTOR'], 
+                    "Tarih": bugun_str,
+                    "Saat": datetime.now().strftime("%H:%M"),
+                    "Kurum": row['KURUM'], 
+                    "Brans": row['İHTİSAS'],
+                    "Not": aktif_not if aktif_not else "Not eklenmedi."
+                })
+                if f"temp_not
