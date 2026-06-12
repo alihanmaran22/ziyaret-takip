@@ -93,7 +93,7 @@ menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Bugün Ne Yaptım?",
 bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
-st.title("💊 Nextpharma Ziyaret Takip")
+st.title("💊 Neutec Ziyaret Takip")
 
 if menu == "Ziyaret Girişi":
     with st.expander(f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"):
