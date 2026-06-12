@@ -54,12 +54,14 @@ if menu == "Ziyaret Girişi":
             st.caption("Henüz bugün ziyaret kaydı girilmedi.")
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
-    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist())
+    
+    # HATA DÜZELTİLDİ: Boş değerleri atıp hepsini metne çevirerek sıralıyoruz
+    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
     if secilen_hastane != 'Lütfen hastane seçiniz...':
         df_filtre = df[df['KURUM'] == secilen_hastane]
-        branslar = ['Tümü'] + sorted(df_filtre['İHTİSAS'].unique().tolist())
+        branslar = ['Tümü'] + sorted(df_filtre['İHTİSAS'].dropna().astype(str).str.strip().unique().tolist())
         secilen_brans = st.selectbox("Branş Seç:", branslar)
         if secilen_brans != 'Tümü':
             df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
@@ -101,11 +103,13 @@ if menu == "Ziyaret Girişi":
 elif menu == "Bugün Ne Yaptım?":
     st.markdown(f"### 📋 Bugün Ne Yaptım? ({bugun_str})")
     st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
+    
     if st.button("🚀 Tüm Ziyaretleri Google Sheets'e Gönder"):
         try:
             sheets_kaydet(bugun_ziyaretleri)
             st.success("Tüm ziyaretler buluta aktarıldı!")
-        except Exception as e: st.error(f"Hata: {e}")
+        except Exception as e: 
+            st.error(f"Hata: {e}")
     
     st.markdown("---")
     if bugun_ziyaretleri:
@@ -113,7 +117,8 @@ elif menu == "Bugün Ne Yaptım?":
             st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
             if z['Not'] != "Not eklenmedi.": st.info(f"💬 {z['Not']}")
             st.markdown("---")
-    else: st.info("Henüz ziyaret kaydı yok.")
+    else: 
+        st.info("Henüz ziyaret kaydı yok.")
 
 elif menu == "Ziyaret Detay Raporu":
     st.markdown("### 📋 Ziyaret Raporu")
@@ -128,4 +133,5 @@ elif menu == "Ziyaret Detay Raporu":
                 for _, z in df_rapor[df_rapor['Brans'] == brans].iterrows():
                     st.write(f"✅ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
                     if z['Not'] != "Not eklenmedi.": st.caption(f"💬 Not: {z['Not']}")
-    else: st.warning("Seçilen tarihe ait kayıt bulunamadı.")
+    else: 
+        st.warning("Seçilen tarihe ait kayıt bulunamadı.")
