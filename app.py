@@ -41,7 +41,7 @@ bugun_ziyaretleri = [
     z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str
 ]
 
-st.title("💊 Nextpharma Ziyaret Takip")
+st.title("💊 Neutec Ziyaret Takip")
 
 if menu == "Ziyaret Girişi":
     # 1. Bugün Ziyaret Edilenler Paneli (Çakışma Önleyici Güvenli Sistem 🚀)
