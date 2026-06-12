@@ -50,7 +50,7 @@ def sheets_kaydet(ziyaretler):
     for z in ziyaretler:
         sheet.append_row([z['Doktor'], z['Kurum'], z['Brans'], z['Tarih'], z['Saat'], z['Not']])
 
-# Veri Yükleme (DÜZELTME: AttributeError riskine karşı veri temizleme yapısı güçlendirildi)
+# Veri Yükleme (DÜZELTME: AttributeError ve apply hatası vermeyen saf Python temizleme yapısı)
 @st.cache_data(ttl=60)
 def load_data():
     client = get_gspread_client()
@@ -61,15 +61,17 @@ def load_data():
     all_values = sheet.get_all_values()
     
     if all_values and len(all_values) > 1:
-        # Sütun başlıklarındaki boşlukları temizle
+        # Başlıkları ve tüm hücreleri daha DataFrame yapmadan saf Python listesi seviyesinde temizliyoruz
         headers = [str(h).strip() for h in all_values[0]]
-        df = pd.DataFrame(all_values[1:], columns=headers)
+        
+        temiz_satirlar = []
+        for row in all_values[1:]:
+            # Satırdaki her hücreyi string'e çevirip sağındaki solundaki boşlukları siliyoruz
+            temiz_satirlar.append([str(cell).strip() for cell in row])
+            
+        df = pd.DataFrame(temiz_satirlar, columns=headers)
     else:
         df = pd.DataFrame(columns=['DOKTOR', 'KURUM', 'İHTİSAS', 'FREKANS'])
-        
-    # Sütunları güvenli bir şekilde string'e çevirip boşlukları temizleme (Hata veren kısım düzeltildi)
-    for col in df.columns:
-        df[col] = df[col].fillna("").astype(str).apply(lambda x: x.strip())
         
     # Sayısal değere dönüştürme ve güvenlik kontrolü
     if 'FREKANS' in df.columns:
@@ -100,7 +102,6 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
     
-    # Zorunlu başlık kontrolleri korundu
     hastane_sutunu = 'KURUM' if 'KURUM' in df.columns else df.columns[1] if len(df.columns) > 1 else None
     brans_sutunu = 'İHTİSAS' if 'İHTİSAS' in df.columns else df.columns[2] if len(df.columns) > 2 else None
     doktor_sutunu = 'DOKTOR' if 'DOKTOR' in df.columns else df.columns[0] if len(df.columns) > 0 else None
