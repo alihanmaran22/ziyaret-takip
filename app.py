@@ -1,10 +1,11 @@
 import streamlit as st
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import json
 
-# GitHub'daki şifreyi okuyoruz
-creds_dict = json.loads(st.secrets["GCP_JSON"])
+# Secrets'tan string olarak al
+creds_json = st.secrets["GCP_JSON"]
+
+# String'i dict'e çevir
+creds_dict = json.loads(creds_json)
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
