@@ -1,59 +1,159 @@
 import streamlit as st
+
 import pandas as pd
+
 from datetime import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
-# --- AYARLAR ---
-st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret")
-st.markdown("<style>.block-container {padding: 1rem;} div.stButton > button {width: 100%;}</style>", unsafe_allow_html=True)
+import time
 
-# Google Sheets Bağlantı Ayarları (Burayı kendi JSON anahtarınla dolduracaksın)
-# Eğer JSON dosyan varsa onunla auth olacağız, burayı boş geçme
-def get_sheet():
-    # Buraya kendi servis hesabı JSON ayarlarını girmen gerekecek
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets']
-    # creds = ServiceAccountCredentials.from_json_keyfile_name('anahtar.json', scope) # Dosyanın adını buraya yaz
-    # client = gspread.authorize(creds)
-    # return client.open("DosyaAdı").sheet1
-    return None 
+
+
+# Mobil ekran düzeni ve buton tasarımları
+
+st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
+
+st.markdown("""
+
+    <style>
+
+    .block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
+
+    h1, h2, h3 {margin-top: 0.1rem; margin-bottom: 0.1rem;}
+
+    div.stButton > button {width: 100%; padding: 0.2rem 0.4rem; font-size: 13px; height: auto;}
+
+    </style>
+
+""", unsafe_allow_html=True)
+
+
 
 # Veri Yükleme
+
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
-df = pd.read_csv(SHEET_URL)
-df.columns = df.columns.str.strip()
+
+
+
+@st.cache_data(ttl=60)
+
+def load_data():
+
+    df = pd.read_csv(SHEET_URL, header=0)
+
+    df.columns = df.columns.str.strip()
+
+    for col in df.select_dtypes(include=['object']).columns:
+
+        df[col] = df[col].astype(str).str.strip()
+
+    return df
+
+
+
+df = load_data()
+
+
 
 if 'ziyaret_gecmisi' not in st.session_state:
+
     st.session_state.ziyaret_gecmisi = []
 
-menu = st.sidebar.radio("Menü:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
+
+
+menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
+
+bugun_str = datetime.now().strftime("%d/%m/%Y")
+
+bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
+
+
+
+st.title("💊 Nextpharma Ziyaret Takip")
+
+
 
 if menu == "Ziyaret Girişi":
-    st.title("💊 Ziyaret Girişi")
-    hastaneler = ['Seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).unique().tolist())
-    secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
-    if secilen_hastane != 'Seçiniz...':
+    with st.expander(f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"):
+
+        for z in reversed(st.session_state.ziyaret_gecmisi):
+
+            if z['Tarih'] == bugun_str:
+
+                col1, col2 = st.columns([4, 1])
+
+                col1.write(f"{z['Doktor']} - {z['Brans']} ({z['Kurum']})")
+
+                if col2.button("❌", key=f"del_{z['id']}"):
+
+                    st.session_state.ziyaret_gecmisi = [item for item in st.session_state.ziyaret_gecmisi if item['id'] != z['id']]
+
+                    st.rerun()
+
+
+
+    secilen_hastane = st.selectbox("Hastane Seç:", ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist()))
+
+    if secilen_hastane != 'Lütfen hastane seçiniz...':
+
         df_filtre = df[df['KURUM'] == secilen_hastane]
+
+        secilen_brans = st.selectbox("Branş Seç:", ['Tümü'] + sorted(df_filtre['İHTİSAS'].unique().tolist()))
+
+        if secilen_brans != 'Tümü': df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
+
+        
+
         for i, row in df_filtre.iterrows():
+
             st.write(f"**{row['DOKTOR']}** - {row['İHTİSAS']}")
-            if st.button(f"Ziyaret Ekle: {row['DOKTOR']}", key=f"z_{i}"):
+
+            if st.button("Ziyaret Ekle", key=f"z_{i}"):
+
                 st.session_state.ziyaret_gecmisi.append({
-                    "Doktor": row['DOKTOR'],
-                    "Kurum": row['KURUM'],
-                    "Brans": row['İHTİSAS'],
-                    "Zaman": datetime.now().strftime("%H:%M")
+
+                    "id": f"{time.time()}_{i}", "Doktor": row['DOKTOR'], "Tarih": bugun_str,
+
+                    "Kurum": row['KURUM'], "Brans": row['İHTİSAS']
+
                 })
+
                 st.rerun()
 
+
+
 elif menu == "Bugün Ne Yaptım?":
-    st.title("📋 Bugünün Ziyaretleri")
-    for z in st.session_state.ziyaret_gecmisi:
-        st.write(f"⏰ {z['Zaman']} | **{z['Doktor']}** ({z['Brans']})")
-    
-    # İNTERNETE KAYDETME BUTONU BURADA
-    if st.button("🚀 İnternete (Sheets) Kaydet"):
-        # sheet = get_sheet()
-        # for z in st.session_state.ziyaret_gecmisi:
-        #     sheet.append_row([z['Doktor'], z['Kurum'], z['Brans'], z['Zaman']])
-        st.success("Veriler Google Sheets'e gönderildi!")
+
+    st.markdown("### 🚀 Füzyon Hızlı Aktarım")
+
+    if bugun_ziyaretleri:
+
+        df_bugun = pd.DataFrame(bugun_ziyaretleri)
+
+        metin = ""
+
+        # Hastane -> Branş -> Doktor hiyerarşisi
+
+        for hastane in df_bugun['Kurum'].unique():
+
+            metin += f"■ {hastane.upper()}\n"
+
+            df_hastane = df_bugun[df_bugun['Kurum'] == hastane]
+
+            for brans in df_hastane['Brans'].unique():
+
+                metin += f"  • {brans.upper()}\n"
+
+                for dr in df_hastane[df_hastane['Brans'] == brans]['Doktor']:
+
+                    metin += f"    - {dr}\n"
+
+            metin += "\n"
+
+        
+
+        st.code(metin, language="text")
+
+    else:
+
+        st.info("Henüz ziyaret kaydı yok.")
