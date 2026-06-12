@@ -59,19 +59,30 @@ if secilen_hastane != 'Lütfen bir hastane seçiniz...':
                     break
             st.rerun() # Sayfayı yenile
             
-    # 4. Yan Menü: Analiz
+    # 4. Yan Menü: Ziyaret Durum Analizi (Tarih ve Gün Bilgili)
     st.sidebar.title("📊 Ziyaret Durum Analizi")
     if st.session_state.ziyaret_gecmisi:
         df_gecmis = pd.DataFrame(st.session_state.ziyaret_gecmisi)
+        
+        # Tarih formatını güzelleştirmek için Türkçe gün isimleri
+        gunler = {
+            "Monday": "Pazartesi", "Tuesday": "Salı", "Wednesday": "Çarşamba",
+            "Thursday": "Perşembe", "Friday": "Cuma", "Saturday": "Cumartesi", "Sunday": "Pazar"
+        }
+
         for kurum in df_gecmis['Kurum'].unique():
             with st.sidebar.expander(f"🏢 {kurum}"):
                 kurum_df = df_gecmis[df_gecmis['Kurum'] == kurum]
-                for brans in kurum_df['Brans'].unique():
-                    st.write(f"**{brans}**")
-                    brans_df = kurum_df[kurum_df['Brans'] == brans]
-                    for doktor in brans_df['Doktor'].unique():
-                        ziyaret_sayisi = len(brans_df[brans_df['Doktor'] == doktor])
-                        st.write(f"- {doktor}: {ziyaret_sayisi} kez")
+                for doktor in kurum_df['Doktor'].unique():
+                    st.write(f"**{doktor}**")
+                    doktor_df = kurum_df[kurum_df['Doktor'] == doktor]
+                    
+                    for _, z in doktor_df.iterrows():
+                        # Tarih ve gün bilgisini ayıkla
+                        tarih_obj = datetime.strptime(z['Tarih'], "%d/%m/%Y %H:%M")
+                        gun_adi = gunler[tarih_obj.strftime("%A")]
+                        st.write(f"- {z['Tarih']} ({gun_adi})")
+    
     else:
         st.sidebar.info("Henüz ziyaret kaydı yok.")
 else:
