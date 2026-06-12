@@ -18,9 +18,9 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QB
 @st.cache_data(ttl=60)
 def load_data():
     df = pd.read_csv(SHEET_URL, header=0)
-    # Sütun isimlerindeki boşlukları temizle
+    # Sütun isimlerindeki görünmez boşlukları temizle
     df.columns = df.columns.str.strip()
-    # Hücrelerin içindeki gizli boşlukları temizle (Eşleşme hatasını önler)
+    # Hücrelerin içindeki gizli boşlukları temizle
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype(str).str.strip()
     return df
@@ -51,25 +51,18 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
 
-    # Tam istediğin açılır liste yapısı
+    # Açılır liste yapısı (KURUM sütunu büyük harfle çağrılıyor)
     hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist())
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
     if secilen_hastane != 'Lütfen hastane seçiniz...':
         df_filtre = df[df['KURUM'] == secilen_hastane]
         
+        # Branş listesi (İHTİSAS sütunu büyük harfle çağrılıyor)
         branslar = ['Tümü'] + sorted(df_filtre['İHTİSAS'].unique().tolist())
         secilen_brans = st.selectbox("Branş Seç:", branslar)
         
         if secilen_brans != 'Tümü':
             df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
         
-        st.markdown("<div style='margin: 5px 0; border-bottom: 1px solid #444;'></div>", unsafe_allow_html=True)
-        
-        if df_filtre.empty:
-            st.warning("Bu kriterlere uygun doktor bulunamadı.")
-        else:
-            # Jilet gibi ince, yan yana mobil doktor listesi düzeni
-            for i, row in df_filtre.iterrows():
-                yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
-                kalan = int(row['FREKANS']) - yapilan
+        st.markdown("<div style='margin: 5px
