@@ -23,7 +23,22 @@ st.title("💊 Nextpharma Ziyaret Takip")
 menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Ziyaret Detay Raporu"])
 
 if menu == "Ziyaret Girişi":
-    # Özellik 3: Hızlı Doktor Arama Kutusu
+    bugun_str = datetime.now().strftime("%d/%m/%Y")
+    # Bugün girilen tüm ziyaretleri filtrele
+    bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
+    
+    # 🎯 İSTEDİĞİN ÖZELLİK: Giriş ekranında canlı sayaç ve açılır liste
+    with st.expander(f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"):
+        if bugun_ziyaretleri:
+            # Saat sırasına göre tersten göster (en son girdiğin en üstte gözüksün)
+            for z in reversed(bugun_ziyaretleri):
+                st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** - {z['Brans']} ({z['Kurum']})")
+        else:
+            st.info("Bugün henüz bir doktor ziyareti girmediniz.")
+
+    st.markdown("---")
+
+    # Hızlı Doktor Arama Kutusu
     arama_sorgusu = st.text_input("🔍 Doktor İsmi ile Ara:", "").strip().lower()
 
     # Hastane Seçimi
@@ -51,7 +66,7 @@ if menu == "Ziyaret Girişi":
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
             kalan = int(row['FREKANS']) - yapilan
             
-            # Öneri 1: "Kırmızı Alarm" Sistemi (Kalan ziyaret frekansın yarısından fazlaysa ve kalan > 0 ise uyarı ver)
+            # "Kırmızı Alarm" Sistemi
             uyari_etiketi = ""
             if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
                 uyari_etiketi = " ⚠️ <span style='color:#FF4B4B; font-weight:bold;'>[KRİTİK FREKANS]</span>"
@@ -67,8 +82,7 @@ if menu == "Ziyaret Girişi":
                 aktif_not = st.session_state.get(f"temp_not_{i}", "").strip()
                 st.session_state.ziyaret_gecmisi.append({
                     "Doktor": row['DOKTOR'], 
-                    "Tarih": datetime.now().strftime("%d/%m/%Y"),
-                    # Öneri 3: Saat ve dakika damgası ekleme
+                    "Tarih": bugun_str,
                     "Saat": datetime.now().strftime("%H:%M"),
                     "Kurum": row['KURUM'], 
                     "Brans": row['İHTİSAS'],
@@ -114,7 +128,6 @@ elif menu == "Ziyaret Detay Raporu":
     if gunluk_kayitlar:
         df_rapor = pd.DataFrame(gunluk_kayitlar)
         
-        # Öneri 3: Raporu kronolojik olarak saat bazlı sırala
         if 'Saat' in df_rapor.columns:
             df_rapor = df_rapor.sort_values(by='Saat')
         
@@ -122,7 +135,6 @@ elif menu == "Ziyaret Detay Raporu":
             with st.expander(f"🏥 {brans} Branşı"):
                 brans_df = df_rapor[df_rapor['Brans'] == brans]
                 for _, z in brans_df.iterrows():
-                    # Öneri 3'ün Raporda Gösterilmesi: Saat bilgisi ismin başına eklendi
                     ziyaret_saati = f"⏰ {z['Saat']} | " if 'Saat' in z else ""
                     st.write(f"✅ {ziyaret_saati}**{z['Doktor']}** ({z['Kurum']})")
                     if z['Not'] != "Not eklenmedi.":
