@@ -14,12 +14,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Google Cloud Ortak Bağlantı Yapısı
-def get_gspread_client():
+# Google Sheets Fonksiyonu (DÜZELTME: 403 hatası için scope genişletildi)
+def sheets_kaydet(ziyaretler):
+    # Google Drive ve Spreadsheets izinlerinin her ikisi de eklendi
     scope = [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive'
     ]
+    
     creds_dict = {
         "type": st.secrets["gcp_service_account"]["type"],
         "project_id": st.secrets["gcp_service_account"]["project_id"],
@@ -32,53 +34,22 @@ def get_gspread_client():
         "auth_provider_x509_cert_url": st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
         "client_x509_cert_url": st.secrets["gcp_service_account"]["client_x509_cert_url"]
     }
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    return gspread.authorize(creds)
-
-# Google Sheets Veri Kaydetme Fonksiyonu
-def sheets_kaydet(ziyaretler):
-    client = get_gspread_client()
-    SHEET_ADI = "Frekans"     
-    SEKME_ADI = "Ziyaretler"  
     
-    try:
-        sheet = client.open(SHEET_ADI).worksheet(SEKME_ADI)
-    except gspread.exceptions.WorksheetNotFound:
-        sheet = client.open(SHEET_ADI).add_worksheet(title=SEKME_ADI, rows="1000", cols="20")
-        sheet.append_row(["Doktor", "Kurum", "Branş", "Tarih", "Saat", "Not"])
-        
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    sheet = client.open("Frekans").sheet1
     for z in ziyaretler:
         sheet.append_row([z['Doktor'], z['Kurum'], z['Brans'], z['Tarih'], z['Saat'], z['Not']])
 
-# Veri Yükleme (DÜZELTME: AttributeError ve apply hatası vermeyen saf Python temizleme yapısı)
+# Veri Yükleme
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
+
 @st.cache_data(ttl=60)
 def load_data():
-    client = get_gspread_client()
-    SHEET_ADI = "Frekans"
-    SEKME_ADI = "Doktor Listesi"
-    
-    sheet = client.open(SHEET_ADI).worksheet(SEKME_ADI)
-    all_values = sheet.get_all_values()
-    
-    if all_values and len(all_values) > 1:
-        # Başlıkları ve tüm hücreleri daha DataFrame yapmadan saf Python listesi seviyesinde temizliyoruz
-        headers = [str(h).strip() for h in all_values[0]]
-        
-        temiz_satirlar = []
-        for row in all_values[1:]:
-            # Satırdaki her hücreyi string'e çevirip sağındaki solundaki boşlukları siliyoruz
-            temiz_satirlar.append([str(cell).strip() for cell in row])
-            
-        df = pd.DataFrame(temiz_satirlar, columns=headers)
-    else:
-        df = pd.DataFrame(columns=['DOKTOR', 'KURUM', 'İHTİSAS', 'FREKANS'])
-        
-    # Sayısal değere dönüştürme ve güvenlik kontrolü
-    if 'FREKANS' in df.columns:
-        df['FREKANS'] = pd.to_numeric(df['FREKANS'], errors='coerce').fillna(0).astype(int)
-    else:
-        df['FREKANS'] = 0
-        
+    df = pd.read_csv(SHEET_URL, header=0)
+    df.columns = df.columns.str.strip()
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str).str.strip()
     return df
 
 df = load_data()
@@ -102,68 +73,63 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
     
-    hastane_sutunu = 'KURUM' if 'KURUM' in df.columns else df.columns[1] if len(df.columns) > 1 else None
-    brans_sutunu = 'İHTİSAS' if 'İHTİSAS' in df.columns else df.columns[2] if len(df.columns) > 2 else None
-    doktor_sutunu = 'DOKTOR' if 'DOKTOR' in df.columns else df.columns[0] if len(df.columns) > 0 else None
-    
-    if hastane_sutunu and brans_sutunu and doktor_sutunu:
-        ham_hastaneler = df[hastane_sutunu].dropna().unique().tolist()
-        temiz_hastaneler = []
-        for h in ham_hastaneler:
-            if "/" in h and len(h) <= 10:
-                continue
-            if h != "" and h != "nan" and h != hastane_sutunu:
-                temiz_hastaneler.append(h)
-                
-        hastaneler = ['Lütfen hastane seçiniz...'] + sorted(temiz_hastaneler)
-        secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
+    # DÜZELTME: Sütundan gelen verileri temizle ve tarih formatında olan (xx/xx/xxxx) verileri listeden tamamen engelle
+    ham_hastaneler = df['KURUM'].dropna().astype(str).str.strip().unique().tolist()
+    temiz_hastaneler = []
+    for h in ham_hastaneler:
+        # Eğer veri "/" içeriyorsa ve uzunluğu tarih gibiyse listeye alma
+        if "/" in h and len(h) <= 10:
+            continue
+        if h != "" and h != "nan":
+            temiz_hastaneler.append(h)
+            
+    hastaneler = ['Lütfen hastane seçiniz...'] + sorted(temiz_hastaneler)
+    secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
-        if secilen_hastane != 'Lütfen hastane seçiniz...':
-            df_filtre = df[df[hastane_sutunu] == secilen_hastane]
-            
-            ham_branslar = df_filtre[brans_sutunu].dropna().unique().tolist()
-            temiz_branslar = [b for b in ham_branslar if b != "" and b != "nan" and not ("/" in b and len(b) <= 10)]
-            
-            branslar = ['Tümü'] + sorted(temiz_branslar)
-            secilen_brans = st.selectbox("Branş Seç:", branslar)
-            if secilen_brans != 'Tümü':
-                df_filtre = df_filtre[df_filtre[brans_sutunu] == secilen_brans]
-            
-            st.markdown("---")
-            if df_filtre.empty:
-                st.warning("Bu kriterlere uygun doktor bulunamadı.")
-            else:
-                for i, row in df_filtre.iterrows():
-                    dr_adi, dr_brans, dr_kurum = row[doktor_sutunu], row[brans_sutunu], row[hastane_sutunu]
-                    dr_frekans = int(row['FREKANS']) if 'FREKANS' in row else 1
-                    yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == dr_adi])
-                    kalan = dr_frekans - yapilan
-                    uyari = " ⚠️ [KRİTİK]" if kalan > 0 and kalan >= (dr_frekans / 2) else ""
-                    
-                    st.write(f"**{dr_adi}** - {dr_brans} {uyari}")
-                    cols = st.columns([1.5, 1.1, 1.1, 0.8])
-                    cols[0].write(f"Kal: {kalan}/{dr_frekans}")
-                    
-                    if cols[1].button("Ziyaret", key=f"z_{i}"):
-                        k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
-                        st.session_state.ziyaret_gecmisi.append({
-                            "Doktor": dr_adi, "Tarih": bugun_str, "Saat": datetime.now().strftime("%H:%M"),
-                            "Kurum": dr_kurum, "Brans": dr_brans, "Not": k_notu if k_notu else "Not eklenmedi."
-                        })
-                        if f"temp_not_{i}" in st.session_state: del st.session_state[f"temp_not_{i}"]
-                        st.rerun()
-                    
-                    if cols[2].button("İptal", key=f"i_{i}"):
-                        for j in range(len(st.session_state.ziyaret_gecmisi) - 1, -1, -1):
-                            if st.session_state.ziyaret_gecmisi[j]['Doktor'] == dr_adi:
-                                del st.session_state.ziyaret_gecmisi[j]; break
-                        st.rerun()
-                    
-                    with cols[3].expander("✍️"):
-                        st.text_input("Not:", key=f"temp_not_{i}", placeholder="Not...", label_visibility="collapsed")
-                    st.markdown("<div style='margin: 1px 0; border-bottom: 1px dashed #333;'></div>", unsafe_allow_html=True)
-    else:
-        st.error("Eksik veya hatalı sütun yapısı! Lütfen Google Sheets dökümanındaki başlıkları kontrol edin.")
+    if secilen_hastane != 'Lütfen hastane seçiniz...':
+        df_filtre = df[df['KURUM'] == secilen_hastane]
+        
+        ham_branslar = df_filtre['İHTİSAS'].dropna().astype(str).str.strip().unique().tolist()
+        temiz_branslar = [b for b in ham_branslar if b != "" and b != "nan" and not ("/" in b and len(b) <= 10)]
+        
+        branslar = ['Tümü'] + sorted(temiz_branslar)
+        secilen_brans = st.selectbox("Branş Seç:", branslar)
+        if secilen_brans != 'Tümü':
+            df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
+        
+        st.markdown("---")
+        if df_filtre.empty:
+            st.warning("Bu kriterlere uygun doktor bulunamadı.")
+        else:
+            for i, row in df_filtre.iterrows():
+                dr_adi, dr_brans, dr_kurum = row['DOKTOR'], row['İHTİSAS'], row['KURUM']
+                dr_frekans = int(row['FREKANS'])
+                yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == dr_adi])
+                kalan = dr_frekans - yapilan
+                uyari = " ⚠️ [KRİTİK]" if kalan > 0 and kalan >= (dr_frekans / 2) else ""
+                
+                st.write(f"**{dr_adi}** - {dr_brans} {uyari}")
+                cols = st.columns([1.5, 1.1, 1.1, 0.8])
+                cols[0].write(f"Kal: {kalan}/{dr_frekans}")
+                
+                if cols[1].button("Ziyaret", key=f"z_{i}"):
+                    k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
+                    st.session_state.ziyaret_gecmisi.append({
+                        "Doktor": dr_adi, "Tarih": bugun_str, "Saat": datetime.now().strftime("%H:%M"),
+                        "Kurum": dr_kurum, "Brans": dr_brans, "Not": k_notu if k_notu else "Not eklenmedi."
+                    })
+                    if f"temp_not_{i}" in st.session_state: del st.session_state[f"temp_not_{i}"]
+                    st.rerun()
+                
+                if cols[2].button("İptal", key=f"i_{i}"):
+                    for j in range(len(st.session_state.ziyaret_gecmisi) - 1, -1, -1):
+                        if st.session_state.ziyaret_gecmisi[j]['Doktor'] == dr_adi:
+                            del st.session_state.ziyaret_gecmisi[j]; break
+                    st.rerun()
+                
+                with cols[3].expander("✍️"):
+                    st.text_input("Not:", key=f"temp_not_{i}", placeholder="Not...", label_visibility="collapsed")
+                st.markdown("<div style='margin: 1px 0; border-bottom: 1px dashed #333;'></div>", unsafe_allow_html=True)
 
 elif menu == "Bugün Ne Yaptım?":
     st.markdown(f"### 📋 Bugün Ne Yaptım? ({bugun_str})")
@@ -175,7 +141,7 @@ elif menu == "Bugün Ne Yaptım?":
         else:
             try:
                 sheets_kaydet(bugun_ziyaretleri)
-                st.success("Tüm ziyaretler 'Ziyaretler' sekmesine aktarıldı!")
+                st.success("Tüm ziyaretler buluta aktarıldı!")
             except Exception as e: 
                 st.error(f"Hata: {e}")
     
