@@ -5,7 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # Mobil ekran düzeni ve Galatasaray Arka Plan Tasarımı
-st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
+st.set_page_config(layout="centered", page_title="Neutec Ziyaret Takip")
 st.markdown("""
     <style>
     /* Arka plan fotoğrafı ve okunurluk katmanı */
