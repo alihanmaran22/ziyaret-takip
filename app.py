@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 # Mobil ekranlarda boşlukları sıfırlayan ve butonları küçülten CSS
-st.set_page_config(layout="centered", page_title="Neutec Ziyaret Takip")
+st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
 st.markdown("""
     <style>
     .block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
@@ -51,7 +51,7 @@ if menu == "Ziyaret Girişi":
 
     st.markdown("### 🔍 Kurum ve Branş Seçimi")
 
-    # Tam istediğin gibi: İlk başta temiz bir açılır liste geliyor
+    # Tam istediğin açılır liste yapısı
     hastaneler = ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist())
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -69,15 +69,7 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Bu kriterlere uygun doktor bulunamadı.")
         else:
-            # Beğendiğin Kompakt Doktor Listesi Düzeni
+            # Jilet gibi ince, yan yana mobil doktor listesi düzeni
             for i, row in df_filtre.iterrows():
                 yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
                 kalan = int(row['FREKANS']) - yapilan
-                
-                # Kritik Durum Uyarı Etiketi
-                uyari_etiketi = ""
-                if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
-                    uyari_etiketi = " <span style='color:#ffaa00; font-size:12px; font-weight:bold;'>[KRİTİK] ⚠️</span>"
-                
-                # Kompakt Doktor Bilgisi
-                st.
