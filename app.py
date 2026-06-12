@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import time
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -23,44 +22,41 @@ creds_dict = {
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ziyaret-bot%40innate-paratext-499214-r1.iam.gserviceaccount.com"
 }
 
-# --- BAĞLANTI ---
+# --- BAĞLANTI VE ARAYÜZ ---
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Frekans").sheet1
 
-# --- ARAYÜZ ---
-st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
-st.markdown("<style>div.stButton > button {width: 100%;}</style>", unsafe_allow_html=True)
-
-# Veriyi Gspread ile çek
+# Veri çekimi
 data = sheet.get_all_values()
 df = pd.DataFrame(data[1:], columns=data[0])
+df['FREKANS'] = pd.to_numeric(df['FREKANS'])
 
-if 'ziyaret_gecmisi' not in st.session_state: st.session_state.ziyaret_gecmisi = []
-
-menu = st.sidebar.radio("Menü:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
-bugun_str = datetime.now().strftime("%d/%m/%Y")
+if 'ziyaret_sepeti' not in st.session_state: st.session_state.ziyaret_sepeti = []
 
 st.title("💊 Nextpharma Ziyaret")
 
-if menu == "Ziyaret Girişi":
-    with st.expander(f"📋 Bekleyenler ({len(st.session_state.ziyaret_gecmisi)})"):
-        for z in reversed(st.session_state.ziyaret_gecmisi):
-            st.write(f"{z['Doktor']} - {z['Kurum']}")
+# 1. Hastane Seçimi
+hastane = st.selectbox("Hastane Seç:", ["Seçiniz..."] + sorted(df['KURUM'].unique().tolist()))
 
-    secilen_hastane = st.selectbox("Hastane Seç:", ['Seçiniz...'] + sorted(df['KURUM'].unique().tolist()))
-    if secilen_hastane != 'Seçiniz...':
-        for i, row in df[df['KURUM'] == secilen_hastane].iterrows():
-            if st.button(f"Ekle: {row['DOKTOR']}", key=f"z_{i}"):
-                st.session_state.ziyaret_gecmisi.append({"Doktor": row['DOKTOR'], "Kurum": row['KURUM']})
-                st.rerun()
+if hastane != "Seçiniz...":
+    df_hastane = df[df['KURUM'] == hastane]
+    for idx, row in df_hastane.iterrows():
+        # Doktor ve güncel frekans bilgisi
+        st.write(f"**{row['DOKTOR']}** (Kalan Frekans: {row['FREKANS']})")
+        if st.button(f"Ziyaret Ekle: {row['DOKTOR']}", key=f"btn_{idx}"):
+            st.session_state.ziyaret_sepeti.append({'idx': idx, 'Doktor': row['DOKTOR'], 'Kurum': row['KURUM']})
+            st.rerun()
 
-elif menu == "Bugün Ne Yaptım?":
-    if st.button("🚀 Excel'e Gönder"):
-        for z in st.session_state.ziyaret_gecmisi:
-            sheet.append_row([z['Doktor'], z['Kurum'], bugun_str])
-        st.session_state.ziyaret_gecmisi = []
-        st.success("Tümü kaydedildi!")
-        st.rerun()
-    st.write(st.session_state.ziyaret_gecmisi)
+# 2. Sepet ve Kaydet
+st.divider()
+st.write(f"### 📋 Sepettekiler ({len(st.session_state.ziyaret_sepeti)})")
+if st.button("🚀 Hepsi Kaydet (Frekansları Düş)"):
+    for z in st.session_state.ziyaret_sepeti:
+        # Excel'de frekansı 1 azalt
+        yeni_frekans = int(df.at[z['idx'], 'FREKANS']) - 1
+        sheet.update_cell(z['idx'] + 2, 4, yeni_frekans) # Frekans sütunu 4. sütun
+    st.session_state.ziyaret_sepeti = []
+    st.success("Tüm ziyaretler işlendi!")
+    st.rerun()
