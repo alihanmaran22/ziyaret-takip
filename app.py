@@ -24,12 +24,12 @@ bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 if menu == "Ziyaret Girişi":
-    # İstediğin gibi: Büyük "Nextpharma Ziyaret Takip" başlığı kaldırıldı!
+    # Büyük başlık tamamen kaldırıldı!
     
     # Hızlı Doktor Arama Kutusu
     arama_sorgusu = st.text_input("🔍 Doktor İsmi ile Ara:", "").strip().lower()
 
-    # ESKİSİ GİBİ: Açılır Liste (Selectbox) Düzeni
+    # Orijinal Temiz Açılır Liste (Selectbox) Düzeni
     hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -50,7 +50,7 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Aranan kriterlere uygun doktor bulunamadı.")
         
-        # ESKİ SADE LİSTE: Doktorlar orijinal kompakt yapısıyla listeleniyor
+        # Orijinal Hızlı Liste Düzeni: Doktor kartları ve yan yana butonlar
         for i, row in df_filtre.iterrows():
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
             kalan = int(row['FREKANS']) - yapilan
@@ -60,8 +60,8 @@ if menu == "Ziyaret Girişi":
             if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
                 uyari_etiketi = " ⚠️ [KRİTİK]"
             
-            # Doktor başlığı ve branşı (Hatasız düz string biçimi)
-            st.markdown(f"### **{row['DOKTOR']}** ({row['İHTİSAS']}){uyari_etiketi}")
+            # Doktor başlığı ve branşı (Hatalardan tamamen temizlendi)
+            st.write(f"### **{row['DOKTOR']}** ({row['İHTİSAS']}){uyari_etiketi}")
             
             cols = st.columns([3, 1, 1])
             cols[0].write(f"**Kalan Ziyaret: {kalan}** / {row['FREKANS']}")
@@ -77,4 +77,64 @@ if menu == "Ziyaret Girişi":
                     "Brans": row['İHTİSAS'],
                     "Not": aktif_not if aktif_not else "Not eklenmedi."
                 })
-                if f"temp_not
+                if f"temp_not_{i}" in st.session_state:
+                    del st.session_state[f"temp_not_{i}"]
+                st.rerun()
+            
+            # İptal Et Butonu
+            if cols[2].button("İptal Et", key=f"i_{i}"):
+                for j, z in reversed(list(enumerate(st.session_state.ziyaret_gecmisi))):
+                    if z['Doktor'] == row['DOKTOR']:
+                        del st.session_state.ziyaret_gecmisi[j]
+                        break
+                st.rerun()
+            
+            # Gizli Not Alanı (Expander)
+            with st.expander("✍️ Ziyaret Notu Ekle / Düzenle"):
+                st.text_input(
+                    "Bu ziyaret için notunuzu yazın:", 
+                    key=f"temp_not_{i}", 
+                    placeholder="Örn: Ürün hakkında olumlu..."
+                )
+                
+            st.markdown("---")
+
+elif menu == "Bugün Ne Yaptım?":
+    st.header(f"📋 Bugün Ne Yaptım? ({bugun_str})")
+    st.markdown(f"### 🗓️ Bugün Toplam Girdiğin Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
+    st.markdown("---")
+    
+    if bugun_ziyaretleri:
+        for z in reversed(bugun_ziyaretleri):
+            st.markdown(f"⏰ **{z['Saat']}** | **{z['Doktor']}** - **{z['Brans']}** ({z['Kurum']})")
+            if z['Not'] != "Not eklenmedi.":
+                st.info(f"💬 Not: {z['Not']}")
+            st.markdown("---")
+    else:
+        st.info("Bugün henüz bir doktor ziyaret kaydı girmediniz.")
+
+elif menu == "Ziyaret Detay Raporu":
+    st.header("📋 Ziyaret Detay Raporu")
+    
+    rapor_tarihi = st.date_input("Rapor Tarihi Seç:", datetime.now())
+    tarih_str = rapor_tarihi.strftime("%d/%m/%Y")
+    
+    gunluk_kayitlar = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == tarih_str]
+    
+    st.markdown("### 📊 Günlük Özet")
+    st.metric(label=f"{tarih_str} Toplam Ziyaret Edilen Doktor", value=f"{len(gunluk_kayitlar)} Kişi")
+    st.markdown("---")
+    
+    if gunluk_kayitlar:
+        df_rapor = pd.DataFrame(gunluk_kayitlar)
+        df_rapor = df_rapor.sort_values(by='Saat')
+        
+        for brans in df_rapor['Brans'].unique():
+            with st.expander(f"🏥 {brans} Branşı"):
+                brans_df = df_rapor[df_rapor['Brans'] == brans]
+                for _, z in brans_df.iterrows():
+                    st.write(f"✅ ⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
+                    if z['Not'] != "Not eklenmedi.":
+                        st.info(f"💬 **Ziyaret Notu:** {z['Not']}")
+    else:
+        st.warning("Bu tarihte henüz bir kayıt bulunamadı.")
