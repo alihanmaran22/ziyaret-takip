@@ -25,7 +25,9 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1mybm2kJtDHGUw5sruKp4tpSaV2PwINKfoTrIhCI82rY/edit").sheet1
+# Sadece şu uzun ID kısmını alıyoruz
+sheet_id = "1mybm2kJtDHGUw5sruKp4tpSaV2PwINKfoTrIhCI82rY"
+sheet = client.open_by_key(sheet_id).sheet1
 
 st.title("💊 Nextpharma Kalıcı Kayıt")
 doktor = st.text_input("Doktor Adı:")
