@@ -41,20 +41,18 @@ bugun_ziyaretleri = [
     z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str
 ]
 
-st.title("💊 Neutec Ziyaret Takip")
+st.title("💊 Nextpharma Ziyaret Takip")
 
 if menu == "Ziyaret Girişi":
-    # 1. Bugün Ziyaret Edilenler Paneli (Çakışma Önleyici Güvenli Sistem 🚀)
+    # 1. Bugün Ziyaret Edilenler Paneli
     panel_baslik = f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"
     with st.expander(panel_baslik):
         if bugun_ziyaretleri:
-            # Listeyi tersten gösterirken index karmaşasını önlemek için kopyası üzerinden gidiyoruz
             for z in reversed(st.session_state.ziyaret_gecmisi):
                 if z['Tarih'] == bugun_str:
                     top_cols = st.columns([4, 1])
                     top_cols[0].write(f"⏰ {z['Saat']} | {z['Doktor']} - {z['Brans']} ({z['Kurum']})")
                     
-                    # Benzersiz id ile temiz silme işlemi
                     if top_cols[1].button("❌ İptal", key=f"top_del_{z['id']}"):
                         st.session_state.ziyaret_gecmisi = [
                             item for item in st.session_state.ziyaret_gecmisi if item['id'] != z['id']
@@ -107,7 +105,7 @@ if menu == "Ziyaret Girişi":
                 if cols[1].button("Ziyaret", key=f"z_{i}"):
                     k_notu = st.session_state.get(f"temp_not_{i}", "").strip()
                     st.session_state.ziyaret_gecmisi.append({
-                        "id": f"{int(time.time()*1000)}_{i}",  # Çakışmayı önleyen benzersiz milisaniye ID'si
+                        "id": f"{int(time.time()*1000)}_{i}",
                         "Doktor": dr_adi, 
                         "Tarih": bugun_str,
                         "Saat": datetime.now().strftime("%H:%M"),
@@ -142,22 +140,35 @@ elif menu == "Bugün Ne Yaptım?":
     st.write(f"Toplam Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
     st.markdown("---")
     
-    metin_parcalari = []
-    
     if bugun_ziyaretleri:
+        # Ekran gösterimi için normal akış kalıyor
         for z in reversed(bugun_ziyaretleri):
-            st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** ({z['Kurum']})")
+            st.write(f"⏰ {z['Saat']} | **{z['Doktor']}** - *{z['Brans']}* ({z['Kurum']})")
             if z['Not'] != "Not eklenmedi.":
                 st.info(f"💬 {z['Not']}")
-                metin_parcalari.append(f"{z['Saat']} | {z['Doktor']} ({z['Kurum']}) -> Not: {z['Not']}")
-            else:
-                metin_parcalari.append(f"{z['Saat']} | {z['Doktor']} ({z['Kurum']})")
             st.markdown("---")
         
-        tum_ziyaretler_metni = "\n".join(metin_parcalari)
+        # 🚀 Füzyon İçin Branş Bazlı Gruplama Mantığı
+        # Önce verileri bir DataFrame'e alıp branşlara göre gruplayalım
+        df_bugun = pd.DataFrame(bugun_ziyaretleri)
+        
+        metin_parcalari = []
+        # Benzersiz branşları dönüyoruz
+        for brans in df_bugun['Brans'].unique():
+            metin_parcalari.append(f"■ {brans.upper()}") # Branş başlığı büyük harf
+            df_brans_drs = df_bugun[df_bugun['Brans'] == brans]
+            
+            for _, row in df_brans_drs.iterrows():
+                if row['Not'] != "Not eklenmedi.":
+                    metin_parcalari.append(f"  • {row['Doktor']} ({row['Kurum']}) -> Not: {row['Not']}")
+                else:
+                    metin_parcalari.append(f"  • {row['Doktor']} ({row['Kurum']})")
+            metin_parcalari.append("") # Branşlar arası temiz bir boşluk
+            
+        tum_ziyaretler_metni = "\n".join(metin_parcalari).strip()
         
         st.markdown("### 🚀 Füzyon Hızlı Aktarım Paneli")
-        st.caption("Aşağıdaki kutunun sağ üst köşesindeki kopyalama butonuna basarak listeyi direkt alabilirsin")
+        st.caption("Aşağıdaki branş bazlı listeyi sağ üstteki kopyalama ikonuna basarak direkt Füzyon'a yapıştırabilirsin kankam:")
         st.code(tum_ziyaretler_metni, language="text")
         
     else:
