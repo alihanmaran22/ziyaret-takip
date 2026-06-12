@@ -4,7 +4,7 @@ from datetime import datetime
 
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret")
 
-# 1. Veri Yükleme
+# Veri Yükleme
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
 
 @st.cache_data(ttl=3600)
@@ -13,15 +13,16 @@ def load_data():
 
 df = load_data()
 
-# 2. Hata İçermeyen Veri Yapısı
+# Hafızayı başlat (Hata vermez)
 if 'ziyaretler' not in st.session_state:
     st.session_state.ziyaretler = []
 
-# 3. Arayüz
 st.title("💊 Nextpharma Ziyaret Takip")
 
-# Ziyaret Ekleme Bölümü
+# 1. ZİYARET EKLEME BÖLÜMÜ
+st.subheader("🔍 Doktor Ekle")
 hastane = st.selectbox("Hastane Seç:", ['Seçiniz...'] + sorted(df['KURUM'].unique().tolist()))
+
 if hastane != 'Seçiniz...':
     df_f = df[df['KURUM'] == hastane]
     brans = st.selectbox("Branş Seç:", ['Tümü'] + sorted(df_f['İHTİSAS'].unique().tolist()))
@@ -36,7 +37,17 @@ if hastane != 'Seçiniz...':
             })
             st.success(f"{row['DOKTOR']} eklendi!")
 
-# 4. Füzyon Aktarım (Hatasız Kopyalama)
+# 2. LİSTEYİ GÖRÜNTÜLE VE SİL
+st.divider()
+st.subheader("📋 Bugün Ziyaret Edilenler")
+for idx, z in enumerate(st.session_state.ziyaretler):
+    c1, c2 = st.columns([4, 1])
+    c1.write(f"✅ {z['Doktor']} ({z['Kurum']})")
+    if c2.button("❌", key=f"del_{idx}"):
+        del st.session_state.ziyaretler[idx]
+        st.rerun()
+
+# 3. FÜZYON AKTARIM PANELI
 st.divider()
 st.subheader("🚀 Füzyon Hızlı Aktarım")
 if st.session_state.ziyaretler:
@@ -49,6 +60,6 @@ if st.session_state.ziyaretler:
             for dr in df_temp[(df_temp['Kurum'] == kurum) & (df_temp['Brans'] == brans)]['Doktor']:
                 metin += f"    - {dr}\n"
     
-    st.text_area("Bu metni kopyala:", value=metin, height=200)
+    st.text_area("Bu metni kopyala:", value=metin, height=250)
 else:
     st.info("Henüz ziyaret kaydı yok.")
