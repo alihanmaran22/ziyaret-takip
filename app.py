@@ -10,13 +10,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Veri Yükleme (Public CSV)
+# Veri Yükleme
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
     df = pd.read_csv(SHEET_URL)
-    # Sütun isimlerindeki boşlukları temizle
     df.columns = df.columns.str.strip()
     return df
 
@@ -27,14 +26,14 @@ try:
     if 'ziyaret_gecmisi' not in st.session_state:
         st.session_state.ziyaret_gecmisi = []
 
-    # Basit Menü
+    # Menü
     menu = st.sidebar.radio("Menü:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
     
     st.title("💊 Nextpharma Ziyaret Takip")
 
     if menu == "Ziyaret Girişi":
-        # Hastane Listesi
-        hastane_listesi = ['Seçiniz...'] + sorted(df['KURUM'].unique().astype(str).tolist())
+        # HATA DÜZELTİLDİ: Boş değerleri atıp metne çeviriyoruz
+        hastane_listesi = ['Seçiniz...'] + sorted(df['KURUM'].dropna().astype(str).str.strip().unique().tolist())
         secilen_hastane = st.selectbox("Hastane Seç:", hastane_listesi)
 
         if secilen_hastane != 'Seçiniz...':
@@ -57,5 +56,5 @@ try:
             st.info("Henüz ziyaret eklenmedi.")
 
 except Exception as e:
-    st.error("Veri yüklenirken bir hata oluştu. Lütfen bağlantını kontrol et.")
+    st.error("Veri yüklenirken hata oluştu, lütfen bağlantını kontrol et.")
     st.write(e)
