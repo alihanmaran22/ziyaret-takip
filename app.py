@@ -1,69 +1,80 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 
-# 1. Sayfa Ayarları
-st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret")
+# Mobil ekran düzeni ve buton tasarımları
+st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
+st.markdown("""
+    <style>
+    .block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
+    h1, h2, h3 {margin-top: 0.1rem; margin-bottom: 0.1rem;}
+    div.stButton > button {width: 100%; padding: 0.2rem 0.4rem; font-size: 13px; height: auto;}
+    </style>
+""", unsafe_allow_html=True)
 
-# 2. Veri Yükleme
+# Veri Yükleme
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=60)
 def load_data():
-    return pd.read_csv(SHEET_URL)
+    df = pd.read_csv(SHEET_URL, header=0)
+    df.columns = df.columns.str.strip()
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str).str.strip()
+    return df
 
 df = load_data()
 
-# 3. Ziyaret Geçmişini Başlat
-if 'ziyaretler' not in st.session_state:
-    st.session_state.ziyaretler = []
+if 'ziyaret_gecmisi' not in st.session_state:
+    st.session_state.ziyaret_gecmisi = []
+
+menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Bugün Ne Yaptım?"])
+bugun_str = datetime.now().strftime("%d/%m/%Y")
+bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 st.title("💊 Nextpharma Ziyaret Takip")
 
-# 4. ARAMA VE EKLEME PANELİ
-st.subheader("🔍 Doktor Ekle")
-hastane = st.selectbox("Hastane Seç:", ['Seçiniz...'] + sorted(df['KURUM'].unique().tolist()))
+if menu == "Ziyaret Girişi":
+    with st.expander(f"📋 Bugün Ziyaret Edilenler ({len(bugun_ziyaretleri)} Doktor)"):
+        for z in reversed(st.session_state.ziyaret_gecmisi):
+            if z['Tarih'] == bugun_str:
+                col1, col2 = st.columns([4, 1])
+                col1.write(f"{z['Doktor']} - {z['Brans']} ({z['Kurum']})")
+                if col2.button("❌", key=f"del_{z['id']}"):
+                    st.session_state.ziyaret_gecmisi = [item for item in st.session_state.ziyaret_gecmisi if item['id'] != z['id']]
+                    st.rerun()
 
-if hastane != 'Seçiniz...':
-    df_f = df[df['KURUM'] == hastane]
-    brans = st.selectbox("Branş Seç:", ['Tümü'] + sorted(df_f['İHTİSAS'].unique().tolist()))
-    if brans != 'Tümü':
-        df_f = df_f[df_f['İHTİSAS'] == brans]
-    
-    # Doktorları listele ve ekle butonları
-    for i, row in df_f.iterrows():
-        if st.button(f"➕ {row['DOKTOR']}", key=f"dr_{i}"):
-            st.session_state.ziyaretler.append({
-                "Doktor": row['DOKTOR'],
-                "Kurum": row['KURUM'],
-                "Brans": row['İHTİSAS']
-            })
-            st.success(f"{row['DOKTOR']} eklendi!")
+    secilen_hastane = st.selectbox("Hastane Seç:", ['Lütfen hastane seçiniz...'] + sorted(df['KURUM'].unique().tolist()))
+    if secilen_hastane != 'Lütfen hastane seçiniz...':
+        df_filtre = df[df['KURUM'] == secilen_hastane]
+        secilen_brans = st.selectbox("Branş Seç:", ['Tümü'] + sorted(df_filtre['İHTİSAS'].unique().tolist()))
+        if secilen_brans != 'Tümü': df_filtre = df_filtre[df_filtre['İHTİSAS'] == secilen_brans]
+        
+        for i, row in df_filtre.iterrows():
+            st.write(f"**{row['DOKTOR']}** - {row['İHTİSAS']}")
+            if st.button("Ziyaret Ekle", key=f"z_{i}"):
+                st.session_state.ziyaret_gecmisi.append({
+                    "id": f"{time.time()}_{i}", "Doktor": row['DOKTOR'], "Tarih": bugun_str,
+                    "Kurum": row['KURUM'], "Brans": row['İHTİSAS']
+                })
+                st.rerun()
 
-# 5. BUGÜN ZİYARET EDİLENLER VE SİLME (Burası senin istediğin liste)
-st.divider()
-st.subheader("📋 Bugün Ziyaret Edilenler")
-for idx, z in enumerate(st.session_state.ziyaretler):
-    c1, c2 = st.columns([4, 1])
-    c1.write(f"✅ {z['Doktor']} ({z['Kurum']})")
-    if c2.button("❌", key=f"del_{idx}"):
-        del st.session_state.ziyaretler[idx]
-        st.rerun()
-
-# 6. FÜZYON AKTARIM PANELİ
-st.divider()
-st.subheader("🚀 Füzyon Hızlı Aktarım")
-if st.session_state.ziyaretler:
-    metin = ""
-    df_temp = pd.DataFrame(st.session_state.ziyaretler)
-    # Gruplandırılmış format
-    for kurum in df_temp['Kurum'].unique():
-        metin += f"■ {kurum.upper()}\n"
-        for brans in df_temp[df_temp['Kurum'] == kurum]['Brans'].unique():
-            metin += f"  • {brans.upper()}\n"
-            for dr in df_temp[(df_temp['Kurum'] == kurum) & (df_temp['Brans'] == brans)]['Doktor']:
-                metin += f"    - {dr}\n"
-    
-    st.text_area("Bu metni kopyala:", value=metin, height=250)
-else:
-    st.info("Henüz ziyaret kaydı yok.")
+elif menu == "Bugün Ne Yaptım?":
+    st.markdown("### 🚀 Füzyon Hızlı Aktarım")
+    if bugun_ziyaretleri:
+        df_bugun = pd.DataFrame(bugun_ziyaretleri)
+        metin = ""
+        # Hastane -> Branş -> Doktor hiyerarşisi
+        for hastane in df_bugun['Kurum'].unique():
+            metin += f"■ {hastane.upper()}\n"
+            df_hastane = df_bugun[df_bugun['Kurum'] == hastane]
+            for brans in df_hastane['Brans'].unique():
+                metin += f"  • {brans.upper()}\n"
+                for dr in df_hastane[df_hastane['Brans'] == brans]['Doktor']:
+                    metin += f"    - {dr}\n"
+            metin += "\n"
+        
+        st.code(metin, language="text")
+    else:
+        st.info("Henüz ziyaret kaydı yok.")
