@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Ayarlar
+# 1. Ayarlar
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSGD7luSrQ-itoqU0QBinOX2TWzDr5Fabi-teecWOPy6VbnaB5-U_N8tHopNjaxRhj3BiivmrWrzi6f/pub?output=csv"
 
 @st.cache_data(ttl=60)
@@ -18,14 +18,11 @@ if 'ziyaret_gecmisi' not in st.session_state:
 
 st.title("💊 Nextpharma Ziyaret Takip")
 
-# 1. Menü Seçimi (Ziyaret Girişi veya Rapor)
+# Menü
 menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Ziyaret Detay Raporu"])
 
 if menu == "Ziyaret Girişi":
-    # Önce Tarih Seçimi
-    secilen_tarih = st.date_input("Ziyaret Tarihi Seç:", datetime.now())
-    
-    # Hastane Seçimi (Tarih seçildikten sonra aktif)
+    # Tarih seçiciyi buradan kaldırdık, ziyaret anı tarihi otomatik alınıyor
     hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -41,18 +38,29 @@ if menu == "Ziyaret Girişi":
         for i, row in df_filtre.iterrows():
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
             kalan = int(row['FREKANS']) - yapilan
+            
             cols = st.columns([3, 1, 1])
             cols[0].write(f"**{row['DOKTOR']}** ({row['İHTİSAS']}) - **Kalan: {kalan}**")
             
+            # Ziyaret Et
             if cols[1].button("Ziyaret Et", key=f"z_{i}"):
                 st.session_state.ziyaret_gecmisi.append({
-                    "Doktor": row['DOKTOR'], "Tarih": secilen_tarih.strftime("%d/%m/%Y"),
+                    "Doktor": row['DOKTOR'], "Tarih": datetime.now().strftime("%d/%m/%Y"),
                     "Kurum": row['KURUM'], "Brans": row['İHTİSAS']
                 })
+                st.rerun()
+            
+            # İptal Et (Geri geldi!)
+            if cols[2].button("İptal Et", key=f"i_{i}"):
+                for j, z in reversed(list(enumerate(st.session_state.ziyaret_gecmisi))):
+                    if z['Doktor'] == row['DOKTOR']:
+                        del st.session_state.ziyaret_gecmisi[j]
+                        break
                 st.rerun()
 
 elif menu == "Ziyaret Detay Raporu":
     st.header("📋 Ziyaret Detay Raporu")
+    # Tarih seçimi artık sadece burada var
     rapor_tarihi = st.date_input("Rapor Tarihi Seç:", datetime.now())
     tarih_str = rapor_tarihi.strftime("%d/%m/%Y")
     
@@ -62,11 +70,10 @@ elif menu == "Ziyaret Detay Raporu":
         df_rapor = pd.DataFrame(gunluk_kayitlar)
         st.success(f"{tarih_str} tarihinde {len(df_rapor)} doktor ziyaret edildi.")
         
-        # Branş bazlı gruplama
         for brans in df_rapor['Brans'].unique():
             with st.expander(f"🏥 {brans}"):
-                brans_doktorlari = df_rapor[df_rapor['Brans'] == brans]
-                for doktor in brans_doktorlari['Doktor'].unique():
+                doktorlar = df_rapor[df_rapor['Brans'] == brans]['Doktor'].unique()
+                for doktor in doktorlar:
                     st.write(f"✅ {doktor}")
     else:
         st.warning("Bu tarihte henüz bir kayıt bulunamadı.")
