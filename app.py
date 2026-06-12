@@ -23,7 +23,7 @@ st.title("💊 Nextpharma Ziyaret Takip")
 menu = st.sidebar.radio("Menü Seç:", ["Ziyaret Girişi", "Ziyaret Detay Raporu"])
 
 if menu == "Ziyaret Girişi":
-    # Hızlı Doktor Arama Kutusu
+    # Özellik 3: Hızlı Doktor Arama Kutusu
     arama_sorgusu = st.text_input("🔍 Doktor İsmi ile Ara:", "").strip().lower()
 
     # Hastane Seçimi
@@ -51,22 +51,29 @@ if menu == "Ziyaret Girişi":
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
             kalan = int(row['FREKANS']) - yapilan
             
-            # Ana Satır: Doktor ismi ve Kalan Sayısı
+            # Öneri 1: "Kırmızı Alarm" Sistemi (Kalan ziyaret frekansın yarısından fazlaysa ve kalan > 0 ise uyarı ver)
+            uyari_etiketi = ""
+            if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
+                uyari_etiketi = " ⚠️ <span style='color:#FF4B4B; font-weight:bold;'>[KRİTİK FREKANS]</span>"
+            
+            # HTML destekli Doktor Başlığı
+            st.markdown(f"### **{row['DOKTOR']}** ({row['İHTİSAS']}){uyari_etiketi}", unsafe_allow_html=True)
+            
             cols = st.columns([3, 1, 1])
-            cols[0].write(f"### **{row['DOKTOR']}** ({row['İHTİSAS']})")
+            cols[0].write(f"**Kalan Ziyaret: {kalan}** / {row['FREKANS']}")
             
             # Ziyaret Et Butonu
             if cols[1].button("Ziyaret Et", key=f"z_{i}"):
-                # Eğer alt menüdeki not yazılmadıysa session_state'den geçici notu al, yoksa boş bırak
                 aktif_not = st.session_state.get(f"temp_not_{i}", "").strip()
                 st.session_state.ziyaret_gecmisi.append({
                     "Doktor": row['DOKTOR'], 
                     "Tarih": datetime.now().strftime("%d/%m/%Y"),
+                    # Öneri 3: Saat ve dakika damgası ekleme
+                    "Saat": datetime.now().strftime("%H:%M"),
                     "Kurum": row['KURUM'], 
                     "Brans": row['İHTİSAS'],
                     "Not": aktif_not if aktif_not else "Not eklenmedi."
                 })
-                # Ziyaret gerçekleştikten sonra geçici notu temizle
                 if f"temp_not_{i}" in st.session_state:
                     del st.session_state[f"temp_not_{i}"]
                 st.rerun()
@@ -79,10 +86,7 @@ if menu == "Ziyaret Girişi":
                         break
                 st.rerun()
             
-            # Alt Bilgi Satırı
-            st.write(f"**Kalan Ziyaret: {kalan}** / {row['FREKANS']}")
-            
-            # İstediğin Şey: Doktorun içine girilecek gizli Not Alanı (Expander)
+            # Gizli Not Alanı (Expander)
             with st.expander("✍️ Ziyaret Notu Ekle / Düzenle"):
                 st.text_input(
                     "Bu ziyaret için notunuzu yazın:", 
@@ -100,7 +104,6 @@ elif menu == "Ziyaret Detay Raporu":
     tarih_str = rapor_tarihi.strftime("%d/%m/%Y")
     
     # Günlük kayıtlar
-    gunluk_kayitlar = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] ==_str]
     gunluk_kayitlar = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == tarih_str]
     
     # Ziyaret İstatistikleri
@@ -111,11 +114,17 @@ elif menu == "Ziyaret Detay Raporu":
     if gunluk_kayitlar:
         df_rapor = pd.DataFrame(gunluk_kayitlar)
         
+        # Öneri 3: Raporu kronolojik olarak saat bazlı sırala
+        if 'Saat' in df_rapor.columns:
+            df_rapor = df_rapor.sort_values(by='Saat')
+        
         for brans in df_rapor['Brans'].unique():
             with st.expander(f"🏥 {brans} Branşı"):
                 brans_df = df_rapor[df_rapor['Brans'] == brans]
                 for _, z in brans_df.iterrows():
-                    st.write(f"✅ **{z['Doktor']}** ({z['Kurum']})")
+                    # Öneri 3'ün Raporda Gösterilmesi: Saat bilgisi ismin başına eklendi
+                    ziyaret_saati = f"⏰ {z['Saat']} | " if 'Saat' in z else ""
+                    st.write(f"✅ {ziyaret_saati}**{z['Doktor']}** ({z['Kurum']})")
                     if z['Not'] != "Not eklenmedi.":
                         st.info(f"💬 **Ziyaret Notu:** {z['Not']}")
     else:
