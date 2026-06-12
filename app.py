@@ -57,19 +57,3 @@ if menu == "Ziyaret Girişi":
                 kalan = int(row['FREKANS']) - yapilan
                 
                 # Kritik Frekans Uyarısı
-                uyari_etiketi = ""
-                if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
-                    uyari_etiketi = " ⚠️"
-                
-                # Doktor İsmi - Tamamen küçültülmüş mobil uyumlu format
-                st.markdown(f"**{row['DOKTOR']}** <span style='font-size:12px; color:#888;'>({row['İHTİSAS']})</span>{uyari_etiketi}", unsafe_allow_html=True)
-                
-                # Tüm butonlar ve yazılar tek satırda (Hatalı f-string tamamen düzeltildi)
-                cols = st.columns([2, 1.2, 1, 1])
-                
-                kalan_metin = f"<p style='font-size:13px; margin-top:5px;'>Kal: <b>{kalan}</b>/{row['FREKANS']}</p>"
-                cols[0].markdown(kalan_metin, unsafe_allow_html=True)
-                
-                # Ziyaret Et Butonu
-                if cols[1].button("Ziyaret", key=f"z_{i}"):
-                    aktif_not = st.session_state.get(f"temp_not_{i}",
