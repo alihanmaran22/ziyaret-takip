@@ -24,12 +24,12 @@ bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 if menu == "Ziyaret Girişi":
-    # İSTEDİĞİN GİBİ: Büyük başlık kaldırıldı, ekran doğrudan arama ve seçimle başlıyor!
+    # Başlık kaldırıldı, ekran doğrudan arama ile başlıyor
     
     # Hızlı Doktor Arama Kutusu
     arama_sorgusu = st.text_input("🔍 Doktor İsmi ile Ara:", "").strip().lower()
 
-    # ESKİSİ GİBİ: Temiz Açılır Liste (Selectbox) Düzeni
+    # ESKİSİ GİBİ: Açılır Liste (Selectbox) Düzeni
     hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -50,7 +50,15 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Aranan kriterlere uygun doktor bulunamadı.")
         
-        # ESKİ SADE DÜZEN: Doktorlar orijinal kompakt yapısıyla listeleniyor
+        # ESKİ SADE LİSTE: Doktor kartları yan yana butonlarla listeleniyor
         for i, row in df_filtre.iterrows():
             yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
-            kalan = int(row
+            kalan = int(row['FREKANS']) - yapilan
+            
+            # Kritik Frekans Uyarısı
+            uyari_etiketi = ""
+            if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
+                uyari_etiketi = " ⚠️ [KRİTİK]"
+            
+            # Doktor başlığı ve branşı
+            st.write(f"### **{row
