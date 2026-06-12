@@ -4,13 +4,45 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Mobil ekran düzeni
+# Mobil ekran düzeni ve Galatasaray Arka Plan Tasarımı
 st.set_page_config(layout="centered", page_title="Nextpharma Ziyaret Takip")
 st.markdown("""
     <style>
-    .block-container {padding-top: 1rem; padding-bottom: 1rem; padding-left: 0.5rem; padding-right: 0.5rem;}
-    h1, h2, h3 {margin-top: 0.1rem; margin-bottom: 0.1rem;}
-    div.stButton > button {width: 100%; padding: 0.2rem 0.4rem; font-size: 13px; height: auto;}
+    /* Arka plan fotoğrafı ve okunurluk katmanı */
+    .stApp {
+        background-image: linear-gradient(rgba(0, 0, 0, 0.70), rgba(0, 0, 0, 0.70)), 
+                          url("https://scontent.fada2-2.fna.fbcdn.net/v/t39.30808-6/400746646_649551844057515_8144807201101015173_n.jpg?stp=dst-jpg_tt6&cstp=mx710x710&ctp=s710x710&_nc_cat=100&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=hAmnm4I8kMcQ7kNvwGIHZ3Q&_nc_oc=AdodtU9gycppxDb9_C5Sl8yg_uiGSAGIarfFuKNSxFbgi4Y_eCAGioCIvprn4glMAGA&_nc_zt=23&_nc_ht=scontent.fada2-2.fna&_nc_gid=1092aBa1x9U4TRAjSz1dVg&_nc_ss=7b289&oh=00_Af9dMpgBXEJqisYROIZImb2zldtu7JH_MTQ9U0d_mOLYhw&oe=6A31ECE4");
+        background-attachment: fixed;
+        background-size: cover;
+        background-position: center top;
+    }
+    
+    /* Tüm metinlerin ekranda parlaması ve net okunması için */
+    h1, h2, h3, p, span, label, .stMarkdown, .stCaption {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+    
+    /* Seçim kutularının (selectbox) içindeki yazıların görünürlüğü */
+    div[data-baseweb="select"] * {
+        color: #333333 !important;
+    }
+    
+    /* Mobil ekran boşluk ayarları */
+    .block-container {
+        padding-top: 1rem; 
+        padding-bottom: 1rem; 
+        padding-left: 0.5rem; 
+        padding-right: 0.5rem;
+    }
+    
+    /* Butonların genel düzeni */
+    div.stButton > button {
+        width: 100%; 
+        padding: 0.2rem 0.4rem; 
+        font-size: 13px; 
+        height: auto;
+    }
     </style>
 """, unsafe_allow_html=True)
 
