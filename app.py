@@ -24,9 +24,8 @@ bugun_str = datetime.now().strftime("%d/%m/%Y")
 bugun_ziyaretleri = [z for z in st.session_state.ziyaret_gecmisi if z['Tarih'] == bugun_str]
 
 if menu == "Ziyaret Girişi":
-    # Büyük başlık ve arama kutusu tamamen kaldırıldı.
-
-    # Orijinal Temiz Açılır Liste (Selectbox) Düzeni
+    # İstediğin gibi: Büyük başlık ve arama kutusu yok, doğrudan seçimlerle başlıyor.
+    
     hastaneler = ['Lütfen hastane seçiniz...'] + df['KURUM'].unique().tolist()
     secilen_hastane = st.selectbox("Hastane Seç:", hastaneler)
 
@@ -43,7 +42,7 @@ if menu == "Ziyaret Girişi":
         if df_filtre.empty:
             st.warning("Bu kriterlere uygun doktor bulunamadı.")
         else:
-            # Orijinal Hızlı Liste Düzeni: Doktor kartları ve yan yana butonlar tıkır tıkır listeleniyor
+            # Orijinal kompakt düzen: Doktorlar sorunsuz şekilde listeleniyor
             for i, row in df_filtre.iterrows():
                 yapilan = len([z for z in st.session_state.ziyaret_gecmisi if z['Doktor'] == row['DOKTOR']])
                 kalan = int(row['FREKANS']) - yapilan
@@ -53,7 +52,6 @@ if menu == "Ziyaret Girişi":
                 if kalan > 0 and kalan >= (int(row['FREKANS']) / 2):
                     uyari_etiketi = " ⚠️ [KRİTİK]"
                 
-                # Doktor başlığı ve branşı
                 st.write(f"### **{row['DOKTOR']}** ({row['İHTİSAS']}){uyari_etiketi}")
                 
                 cols = st.columns([3, 1, 1])
@@ -77,36 +75,4 @@ if menu == "Ziyaret Girişi":
                 # İptal Et Butonu
                 if cols[2].button("İptal Et", key=f"i_{i}"):
                     for j, z in reversed(list(enumerate(st.session_state.ziyaret_gecmisi))):
-                        if z['Doktor'] == row['DOKTOR']:
-                            del st.session_state.ziyaret_gecmisi[j]
-                            break
-                    st.rerun()
-                
-                # Gizli Not Alanı (Expander)
-                with st.expander("✍️ Ziyaret Notu Ekle / Düzenle"):
-                    st.text_input(
-                        "Bu ziyaret için notunuzu yazın:", 
-                        key=f"temp_not_{i}", 
-                        placeholder="Örn: Ürün hakkında olumlu..."
-                    )
-                    
-                st.markdown("---")
-
-elif menu == "Bugün Ne Yaptım?":
-    st.header(f"📋 Bugün Ne Yaptım? ({bugun_str})")
-    st.markdown(f"### 🗓️ Bugün Toplam Girdiğin Ziyaret: **{len(bugun_ziyaretleri)} Doktor**")
-    st.markdown("---")
-    
-    if bugun_ziyaretleri:
-        for z in reversed(bugun_ziyaretleri):
-            st.markdown(f"⏰ **{z['Saat']}** | **{z['Doktor']}** - **{z['Brans']}** ({z['Kurum']})")
-            if z['Not'] != "Not eklenmedi.":
-                st.info(f"💬 Not: {z['Not']}")
-            st.markdown("---")
-    else:
-        st.info("Bugün henüz bir doktor ziyaret kaydı girmediniz.")
-
-elif menu == "Ziyaret Detay Raporu":
-    st.header("📋 Ziyaret Detay Raporu")
-    
-    rapor_tarihi =
+                        if z['Doktor'] ==
